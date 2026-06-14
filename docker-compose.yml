@@ -1,0 +1,72 @@
+services:
+  catalog-service-api:
+    build:
+      context: .
+      dockerfile: src/CatalogService/CatalogService.Api/Dockerfile
+    container_name: micros-02-catalog-service-api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__CatalogDatabase: Host=catalog-service-db;Port=5432;Database=catalog_service;Username=catalog_user;Password=catalog_password
+      PricingService__BaseUrl: http://pricing-service-api:8080
+      PricingService__TimeoutSeconds: 3
+    ports:
+      - "5101:8080"
+    depends_on:
+      catalog-service-db:
+        condition: service_healthy
+      pricing-service-api:
+        condition: service_started
+
+  pricing-service-api:
+    build:
+      context: .
+      dockerfile: src/PricingService/PricingService.Api/Dockerfile
+    container_name: micros-02-pricing-service-api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__PricingDatabase: Host=pricing-service-db;Port=5432;Database=pricing_service;Username=pricing_user;Password=pricing_password
+    ports:
+      - "5102:8080"
+    depends_on:
+      pricing-service-db:
+        condition: service_healthy
+
+  catalog-service-db:
+    image: postgres:18
+    container_name: micros-02-catalog-service-db
+    environment:
+      POSTGRES_DB: catalog_service
+      POSTGRES_USER: catalog_user
+      POSTGRES_PASSWORD: catalog_password
+    ports:
+      - "5433:5432"
+    volumes:
+      - catalog_service_db_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U catalog_user -d catalog_service"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  pricing-service-db:
+    image: postgres:18
+    container_name: micros-02-pricing-service-db
+    environment:
+      POSTGRES_DB: pricing_service
+      POSTGRES_USER: pricing_user
+      POSTGRES_PASSWORD: pricing_password
+    ports:
+      - "5434:5432"
+    volumes:
+      - pricing_service_db_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pricing_user -d pricing_service"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  catalog_service_db_data:
+  pricing_service_db_data:

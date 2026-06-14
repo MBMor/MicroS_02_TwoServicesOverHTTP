@@ -12,3 +12,18 @@ docker build \
   Execution
   docker run --rm -p 5001:8080 micros-02-catalog-service-api
   docker run --rm -p 5002:8080 micros-02-pricing-service-api
+
+  docker compose config
+  docker compose up --build
+
+  curl http://localhost:5101/health
+  curl http://localhost:5102/health
+
+  http://localhost:5101/swagger
+  http://localhost:5102/swagger
+
+  docker compose ps
+  docker compose down
+
+  //with database volumes removal
+  docker compose down -v
