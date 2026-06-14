@@ -1,0 +1,14 @@
+From repository root:
+docker build \
+  -f src/CatalogService/CatalogService.Api/Dockerfile \
+  -t micros-02-catalog-service-api \
+  .
+
+  docker build \
+  -f src/PricingService/PricingService.Api/Dockerfile \
+  -t micros-02-pricing-service-api \
+  .
+
+  Execution
+  docker run --rm -p 5001:8080 micros-02-catalog-service-api
+  docker run --rm -p 5002:8080 micros-02-pricing-service-api

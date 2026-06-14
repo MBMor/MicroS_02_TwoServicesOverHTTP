@@ -1,0 +1,17 @@
+**/.dockerignore
+**/Dockerfile
+**/bin/
+**/obj/
+**/.vs/
+**/.vscode/
+**/.idea/
+**/*.user
+**/*.suo
+**/*.rsuser
+**/*.nupkg
+**/TestResults/
+**/coverage/
+.git/
+.gitignore
+README.md
+docker-compose.yml

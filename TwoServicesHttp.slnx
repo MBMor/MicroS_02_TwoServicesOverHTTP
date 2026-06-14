@@ -1,4 +1,8 @@
 <Solution>
+  <Folder Name="/Solution Items/">
+    <File Path=".dockerignore" />
+    <File Path="misc.txt" />
+  </Folder>
   <Folder Name="/src/" />
   <Folder Name="/src/CatalogService/">
     <Project Path="src/CatalogService/CatalogService.Api/CatalogService.Api.csproj" />
