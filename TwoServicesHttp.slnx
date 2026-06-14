@@ -1,0 +1,15 @@
+<Solution>
+  <Folder Name="/src/" />
+  <Folder Name="/src/CatalogService/">
+    <Project Path="src/CatalogService/CatalogService.Api/CatalogService.Api.csproj" />
+    <Project Path="src/CatalogService/CatalogService.Application/CatalogService.Application.csproj" />
+    <Project Path="src/CatalogService/CatalogService.Domain/CatalogService.Domain.csproj" />
+    <Project Path="src/CatalogService/CatalogService.Infrastructure/CatalogService.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/PricingService/">
+    <Project Path="src/PricingService/PricingService.Api/PricingService.Api.csproj" />
+    <Project Path="src/PricingService/PricingService.Application/PricingService.Application.csproj" />
+    <Project Path="src/PricingService/PricingService.Domain/PricingService.Domain.csproj" />
+    <Project Path="src/PricingService/PricingService.Infrastructure/PricingService.Infrastructure.csproj" />
+  </Folder>
+</Solution>

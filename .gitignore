@@ -1,0 +1,29 @@
+# Build output
+bin/
+obj/
+
+# User-specific files
+*.user
+*.suo
+*.rsuser
+.vs/
+.vscode/
+.idea/
+
+# Logs
+*.log
+logs/
+
+# Environment files
+.env
+.env.local
+
+# Test results
+TestResults/
+coverage/
+*.coverage
+*.trx
+
+# OS files
+.DS_Store
+Thumbs.db
