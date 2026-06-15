@@ -1,8 +1,36 @@
+using FluentValidation;
+using Microsoft.EntityFrameworkCore;
+using PricingService.Application.Common;
+using PricingService.Application.ProductPrices;
+using PricingService.Infrastructure.Common;
+using PricingService.Infrastructure.Persistence;
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddOpenApi("v1");
 builder.Services.AddHealthChecks();
+
+
+var pricingDatabaseConnectionString = builder.Configuration.GetConnectionString("PricingDatabase");
+
+if (string.IsNullOrWhiteSpace(pricingDatabaseConnectionString))
+{
+    throw new InvalidOperationException("Connection string 'PricingDatabase' is not configured.");
+}
+
+builder.Services.AddDbContext<PricingDbContext>(options =>
+{
+    options.UseNpgsql(pricingDatabaseConnectionString);
+});
+
+builder.Services.AddSingleton<IClock, SystemClock>();
+
+builder.Services.AddScoped<IProductPriceRepository, ProductPriceRepository>();
+builder.Services.AddScoped<IProductPriceService, ProductPriceService>();
+
+builder.Services.AddScoped<IValidator<SetProductPriceRequest>, SetProductPriceRequestValidator>();
+
 
 var app = builder.Build();
 
