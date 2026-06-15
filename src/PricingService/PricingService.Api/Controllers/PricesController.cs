@@ -59,6 +59,35 @@ public sealed class PricesController(IProductPriceService productPriceService) :
         }
     }
 
+    [HttpPut("{productId:guid}")]
+    [ProducesResponseType(typeof(ProductPriceResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ProductPriceResponse>> Update(
+    Guid productId,
+    [FromBody] UpdateProductPriceRequest request,
+    CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await _productPriceService.UpdateAsync(
+                productId,
+                request,
+                cancellationToken);
+
+            if (response is null)
+            {
+                return NotFound();
+            }
+
+            return Ok(response);
+        }
+        catch (ValidationException exception)
+        {
+            return ToValidationProblem(exception);
+        }
+    }
+
     private ActionResult ToValidationProblem(ValidationException exception)
     {
         foreach (var error in exception.Errors)

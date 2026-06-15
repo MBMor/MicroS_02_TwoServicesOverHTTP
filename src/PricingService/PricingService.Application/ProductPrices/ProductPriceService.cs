@@ -8,10 +8,12 @@ namespace PricingService.Application.ProductPrices;
 public sealed class ProductPriceService(
     IProductPriceRepository repository,
     IValidator<SetProductPriceRequest> setValidator,
+    IValidator<UpdateProductPriceRequest> updateValidator,
     IClock clock) : IProductPriceService
 {
     private readonly IProductPriceRepository _repository = repository;
     private readonly IValidator<SetProductPriceRequest> _setValidator = setValidator;
+    private readonly IValidator<UpdateProductPriceRequest> _updateValidator = updateValidator;
     private readonly IClock _clock = clock;
 
     public async Task<ProductPriceResponse> SetAsync(
@@ -56,12 +58,35 @@ public sealed class ProductPriceService(
             : MapToResponse(price);
     }
 
-    public Task<ProductPriceResponse?> UpdateAsync(
+    public async Task<ProductPriceResponse?> UpdateAsync(
         Guid productId,
         UpdateProductPriceRequest request,
         CancellationToken cancellationToken)
     {
-        throw new NotImplementedException("Updating product price will be implemented later");
+        var validationResult = await _updateValidator.ValidateAsync(request, cancellationToken);
+
+        if (!validationResult.IsValid)
+        {
+            throw new ValidationException(validationResult.Errors);
+        }
+
+        var price = await _repository.GetByProductIdAsync(
+            productId,
+            cancellationToken);
+
+        if (price is null)
+        {
+            return null;
+        }
+
+        price.Update(
+            request.Amount,
+            request.Currency,
+            _clock.UtcNow);
+
+        await _repository.SaveChangesAsync(cancellationToken);
+
+        return MapToResponse(price);
     }
 
     public Task<IReadOnlyCollection<ProductPriceLookupResponse>> GetByProductIdsAsync(
