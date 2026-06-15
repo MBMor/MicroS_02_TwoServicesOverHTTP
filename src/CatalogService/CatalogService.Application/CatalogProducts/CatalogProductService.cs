@@ -9,11 +9,13 @@ public sealed class CatalogProductService(
     ICatalogProductRepository repository,
     IValidator<CreateCatalogProductRequest> createValidator,
     IValidator<CatalogProductListRequest> listValidator,
+    IValidator<UpdateCatalogProductRequest> updateValidator,
     IClock clock) : ICatalogProductService
 {
     private readonly ICatalogProductRepository _repository = repository;
     private readonly IValidator<CreateCatalogProductRequest> _createValidator = createValidator;
     private readonly IValidator<CatalogProductListRequest> _listValidator = listValidator;
+    private readonly IValidator<UpdateCatalogProductRequest> _updateValidator = updateValidator;
     private readonly IClock _clock = clock;
 
     public async Task<CatalogProductResponse> CreateAsync(
@@ -83,6 +85,35 @@ public sealed class CatalogProductService(
             totalCount);
     }
 
+    public async Task<CatalogProductResponse?> UpdateAsync(
+    Guid id,
+    UpdateCatalogProductRequest request,
+    CancellationToken cancellationToken)
+    {
+        var validationResult = await _updateValidator.ValidateAsync(request, cancellationToken);
+
+        if (!validationResult.IsValid)
+        {
+            throw new ValidationException(validationResult.Errors);
+        }
+
+        var product = await _repository.GetByIdAsync(id, cancellationToken);
+
+        if (product is null)
+        {
+            return null;
+        }
+
+        product.UpdateMetadata(
+            request.Name,
+            request.Description,
+            request.IsActive,
+            _clock.UtcNow);
+
+        await _repository.SaveChangesAsync(cancellationToken);
+
+        return MapToResponse(product);
+    }
     private static CatalogProductResponse MapToResponse(CatalogProduct product)
     {
         return new CatalogProductResponse(

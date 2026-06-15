@@ -30,6 +30,7 @@ builder.Services.AddScoped<ICatalogProductService, CatalogProductService>();
 
 builder.Services.AddScoped<IValidator<CreateCatalogProductRequest>, CreateCatalogProductRequestValidator>();
 builder.Services.AddScoped<IValidator<CatalogProductListRequest>, CatalogProductListRequestValidator>();
+builder.Services.AddScoped<IValidator<UpdateCatalogProductRequest>, UpdateCatalogProductRequestValidator>();
 
 
 var app = builder.Build();

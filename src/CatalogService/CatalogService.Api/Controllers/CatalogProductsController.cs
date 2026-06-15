@@ -82,6 +82,35 @@ public sealed class CatalogProductsController(ICatalogProductService catalogProd
         }
     }
 
+    [HttpPut("{id:guid}")]
+    [ProducesResponseType(typeof(CatalogProductResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<CatalogProductResponse>> Update(
+    Guid id,
+    [FromBody] UpdateCatalogProductRequest request,
+    CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await _catalogProductService.UpdateAsync(
+                id,
+                request,
+                cancellationToken);
+
+            if (response is null)
+            {
+                return NotFound();
+            }
+
+            return Ok(response);
+        }
+        catch (ValidationException exception)
+        {
+            return ToValidationProblem(exception);
+        }
+    }
+
     private ActionResult ToValidationProblem(ValidationException exception)
     {
         foreach (var error in exception.Errors)

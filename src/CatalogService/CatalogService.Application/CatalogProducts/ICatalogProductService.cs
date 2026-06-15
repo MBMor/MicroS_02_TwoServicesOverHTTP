@@ -19,12 +19,12 @@ public interface ICatalogProductService
     Task<PagedResult<CatalogProductResponse>> ListAsync(
         CatalogProductListRequest request,
         CancellationToken cancellationToken);
-    /*
+    
     Task<CatalogProductResponse?> UpdateAsync(
         Guid id,
         UpdateCatalogProductRequest request,
         CancellationToken cancellationToken);
-
+    /*
     Task<bool> DeactivateAsync(
         Guid id,
         CancellationToken cancellationToken);
