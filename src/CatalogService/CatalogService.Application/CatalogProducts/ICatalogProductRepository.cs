@@ -9,7 +9,7 @@ public interface ICatalogProductRepository
     Task<CatalogProduct?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
 
     Task<bool> ExistsBySkuAsync(string sku, CancellationToken cancellationToken);
-    /*
+    
     Task<IReadOnlyCollection<CatalogProduct>> ListAsync(
         CatalogProductListRequest request,
         CancellationToken cancellationToken);
@@ -17,6 +17,6 @@ public interface ICatalogProductRepository
      Task<int> CountAsync(
         CatalogProductListRequest request,
         CancellationToken cancellationToken);
-    */
+    
     Task SaveChangesAsync(CancellationToken cancellationToken);
 }

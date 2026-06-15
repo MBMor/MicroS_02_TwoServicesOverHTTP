@@ -29,7 +29,7 @@ builder.Services.AddScoped<ICatalogProductRepository, CatalogProductRepository>(
 builder.Services.AddScoped<ICatalogProductService, CatalogProductService>();
 
 builder.Services.AddScoped<IValidator<CreateCatalogProductRequest>, CreateCatalogProductRequestValidator>();
-
+builder.Services.AddScoped<IValidator<CatalogProductListRequest>, CatalogProductListRequestValidator>();
 
 
 var app = builder.Build();

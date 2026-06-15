@@ -1,4 +1,5 @@
 ﻿using CatalogService.Application.CatalogProducts;
+using CatalogService.Application.Common;
 using CatalogService.Application.Common.Exceptions;
 using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
@@ -10,6 +11,25 @@ namespace CatalogService.Api.Controllers;
 public sealed class CatalogProductsController(ICatalogProductService catalogProductService) : ControllerBase
 {
     private readonly ICatalogProductService _catalogProductService = catalogProductService;
+
+    [HttpGet]
+    [ProducesResponseType(typeof(PagedResult<CatalogProductResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<PagedResult<CatalogProductResponse>>> List(
+    [FromQuery] CatalogProductListRequest request,
+    CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await _catalogProductService.ListAsync(request, cancellationToken);
+
+            return Ok(response);
+        }
+        catch (ValidationException exception)
+        {
+            return ToValidationProblem(exception);
+        }
+    }
 
     [HttpGet("{id:guid}")]
     [ProducesResponseType(typeof(CatalogProductResponse), StatusCodes.Status200OK)]
@@ -61,4 +81,15 @@ public sealed class CatalogProductsController(ICatalogProductService catalogProd
             });
         }
     }
+
+    private ActionResult ToValidationProblem(ValidationException exception)
+    {
+        foreach (var error in exception.Errors)
+        {
+            ModelState.AddModelError(error.PropertyName, error.ErrorMessage);
+        }
+
+        return ValidationProblem(ModelState);
+    }
+
 }

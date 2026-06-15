@@ -8,10 +8,12 @@ namespace CatalogService.Application.CatalogProducts;
 public sealed class CatalogProductService(
     ICatalogProductRepository repository,
     IValidator<CreateCatalogProductRequest> createValidator,
+    IValidator<CatalogProductListRequest> listValidator,
     IClock clock) : ICatalogProductService
 {
     private readonly ICatalogProductRepository _repository = repository;
     private readonly IValidator<CreateCatalogProductRequest> _createValidator = createValidator;
+    private readonly IValidator<CatalogProductListRequest> _listValidator = listValidator;
     private readonly IClock _clock = clock;
 
     public async Task<CatalogProductResponse> CreateAsync(
@@ -54,6 +56,31 @@ public sealed class CatalogProductService(
         return product is null
             ? null
             : MapToResponse(product);
+    }
+
+    public async Task<PagedResult<CatalogProductResponse>> ListAsync(
+    CatalogProductListRequest request,
+    CancellationToken cancellationToken)
+    {
+        var validationResult = await _listValidator.ValidateAsync(request, cancellationToken);
+
+        if (!validationResult.IsValid)
+        {
+            throw new ValidationException(validationResult.Errors);
+        }
+
+        var totalCount = await _repository.CountAsync(request, cancellationToken);
+        var products = await _repository.ListAsync(request, cancellationToken);
+
+        var responses = products
+            .Select(MapToResponse)
+            .ToArray();
+
+        return new PagedResult<CatalogProductResponse>(
+            responses,
+            request.Page,
+            request.PageSize,
+            totalCount);
     }
 
     private static CatalogProductResponse MapToResponse(CatalogProduct product)
