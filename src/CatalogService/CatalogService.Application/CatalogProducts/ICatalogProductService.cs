@@ -24,9 +24,9 @@ public interface ICatalogProductService
         Guid id,
         UpdateCatalogProductRequest request,
         CancellationToken cancellationToken);
-    /*
+    
     Task<bool> DeactivateAsync(
         Guid id,
         CancellationToken cancellationToken);
-    */
+    
 }

@@ -111,6 +111,25 @@ public sealed class CatalogProductsController(ICatalogProductService catalogProd
         }
     }
 
+    [HttpDelete("{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Deactivate(
+    Guid id,
+    CancellationToken cancellationToken)
+    {
+        var wasDeactivated = await _catalogProductService.DeactivateAsync(
+            id,
+            cancellationToken);
+
+        if (!wasDeactivated)
+        {
+            return NotFound();
+        }
+
+        return NoContent();
+    }
+
     private ActionResult ToValidationProblem(ValidationException exception)
     {
         foreach (var error in exception.Errors)

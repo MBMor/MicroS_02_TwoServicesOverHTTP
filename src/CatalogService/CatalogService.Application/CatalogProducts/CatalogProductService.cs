@@ -114,6 +114,25 @@ public sealed class CatalogProductService(
 
         return MapToResponse(product);
     }
+
+    public async Task<bool> DeactivateAsync(
+    Guid id,
+    CancellationToken cancellationToken)
+    {
+        var product = await _repository.GetByIdAsync(id, cancellationToken);
+
+        if (product is null)
+        {
+            return false;
+        }
+
+        product.Deactivate(_clock.UtcNow);
+
+        await _repository.SaveChangesAsync(cancellationToken);
+
+        return true;
+    }
+
     private static CatalogProductResponse MapToResponse(CatalogProduct product)
     {
         return new CatalogProductResponse(
