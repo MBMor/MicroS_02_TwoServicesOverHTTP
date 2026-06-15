@@ -11,6 +11,25 @@ public sealed class PricesController(IProductPriceService productPriceService) :
 {
     private readonly IProductPriceService _productPriceService = productPriceService;
 
+    [HttpGet("{productId:guid}")]
+    [ProducesResponseType(typeof(ProductPriceResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ProductPriceResponse>> GetByProductId(
+    Guid productId,
+    CancellationToken cancellationToken)
+    {
+        var response = await _productPriceService.GetByProductIdAsync(
+            productId,
+            cancellationToken);
+
+        if (response is null)
+        {
+            return NotFound();
+        }
+
+        return Ok(response);
+    }
+
     [HttpPost]
     [ProducesResponseType(typeof(ProductPriceResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]

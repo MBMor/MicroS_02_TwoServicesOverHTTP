@@ -43,11 +43,17 @@ public sealed class ProductPriceService(
         return MapToResponse(price);
     }
 
-    public Task<ProductPriceResponse?> GetByProductIdAsync(
+    public async Task<ProductPriceResponse?> GetByProductIdAsync(
         Guid productId,
         CancellationToken cancellationToken)
     {
-        throw new NotImplementedException("Getting price by product ID will be implemented later");
+        var price = await _repository.GetByProductIdAsync(
+            productId,
+            cancellationToken);
+
+        return price is null
+            ? null
+            : MapToResponse(price);
     }
 
     public Task<ProductPriceResponse?> UpdateAsync(
