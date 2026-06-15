@@ -1,8 +1,36 @@
+using CatalogService.Application.CatalogProducts;
+using CatalogService.Application.Common;
+using CatalogService.Infrastructure.Common;
+using CatalogService.Infrastructure.Persistence;
+using FluentValidation;
+using Microsoft.EntityFrameworkCore;
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddOpenApi("v1");
 builder.Services.AddHealthChecks();
+
+var catalogDatabaseConnectionString = builder.Configuration.GetConnectionString("CatalogDatabase");
+
+if (string.IsNullOrWhiteSpace(catalogDatabaseConnectionString))
+{
+    throw new InvalidOperationException("Connection string 'CatalogDatabase' is not configured.");
+}
+
+builder.Services.AddDbContext<CatalogDbContext>(options =>
+{
+    options.UseNpgsql(catalogDatabaseConnectionString);
+});
+
+builder.Services.AddSingleton<IClock, SystemClock>();
+
+builder.Services.AddScoped<ICatalogProductRepository, CatalogProductRepository>();
+builder.Services.AddScoped<ICatalogProductService, CatalogProductService>();
+
+builder.Services.AddScoped<IValidator<CreateCatalogProductRequest>, CreateCatalogProductRequestValidator>();
+
+
 
 var app = builder.Build();
 

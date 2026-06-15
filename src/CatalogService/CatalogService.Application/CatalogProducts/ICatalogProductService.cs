@@ -7,7 +7,7 @@ public interface ICatalogProductService
     Task<CatalogProductResponse> CreateAsync(
         CreateCatalogProductRequest request,
         CancellationToken cancellationToken);
-
+    /*
     Task<CatalogProductResponse?> GetByIdAsync(
         Guid id,
         CancellationToken cancellationToken);
@@ -28,4 +28,5 @@ public interface ICatalogProductService
     Task<bool> DeactivateAsync(
         Guid id,
         CancellationToken cancellationToken);
+    */
 }
