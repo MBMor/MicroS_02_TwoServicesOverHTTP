@@ -45,6 +45,17 @@ public sealed class CatalogProductService(
         return MapToResponse(product);
     }
 
+    public async Task<CatalogProductResponse?> GetByIdAsync(
+    Guid id,
+    CancellationToken cancellationToken)
+    {
+        var product = await _repository.GetByIdAsync(id, cancellationToken);
+
+        return product is null
+            ? null
+            : MapToResponse(product);
+    }
+
     private static CatalogProductResponse MapToResponse(CatalogProduct product)
     {
         return new CatalogProductResponse(

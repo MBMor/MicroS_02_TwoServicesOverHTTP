@@ -6,7 +6,7 @@ public interface ICatalogProductRepository
 {
     Task AddAsync(CatalogProduct product, CancellationToken cancellationToken);
 
-    //Task<CatalogProduct?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
+    Task<CatalogProduct?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
 
     Task<bool> ExistsBySkuAsync(string sku, CancellationToken cancellationToken);
     /*

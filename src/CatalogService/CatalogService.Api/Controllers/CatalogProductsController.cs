@@ -11,6 +11,23 @@ public sealed class CatalogProductsController(ICatalogProductService catalogProd
 {
     private readonly ICatalogProductService _catalogProductService = catalogProductService;
 
+    [HttpGet("{id:guid}")]
+    [ProducesResponseType(typeof(CatalogProductResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<CatalogProductResponse>> GetById(
+    Guid id,
+    CancellationToken cancellationToken)
+    {
+        var response = await _catalogProductService.GetByIdAsync(id, cancellationToken);
+
+        if (response is null)
+        {
+            return NotFound();
+        }
+
+        return Ok(response);
+    }
+
     [HttpPost]
     [ProducesResponseType(typeof(CatalogProductResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]

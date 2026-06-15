@@ -15,6 +15,14 @@ public sealed class CatalogProductRepository(CatalogDbContext dbContext) : ICata
         await _dbContext.CatalogProducts.AddAsync(product, cancellationToken);
     }
 
+    public async Task<CatalogProduct?> GetByIdAsync(
+    Guid id,
+    CancellationToken cancellationToken)
+    {
+        return await _dbContext.CatalogProducts
+            .FirstOrDefaultAsync(product => product.Id == id, cancellationToken);
+    }
+
     public Task<bool> ExistsBySkuAsync(
         string sku,
         CancellationToken cancellationToken)
