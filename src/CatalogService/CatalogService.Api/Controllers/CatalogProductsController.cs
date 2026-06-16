@@ -1,4 +1,5 @@
-﻿using CatalogService.Application.CatalogProducts;
+﻿using Asp.Versioning;
+using CatalogService.Application.CatalogProducts;
 using CatalogService.Application.Common;
 using CatalogService.Application.Common.Exceptions;
 using FluentValidation;
@@ -7,7 +8,8 @@ using Microsoft.AspNetCore.Mvc;
 namespace CatalogService.Api.Controllers;
 
 [ApiController]
-[Route("api/v1/catalog-products")]
+[ApiVersion(1.0)]
+[Route("api/v{version:apiVersion}/catalog-products")]
 public sealed class CatalogProductsController(ICatalogProductService catalogProductService) : ControllerBase
 {
     private readonly ICatalogProductService _catalogProductService = catalogProductService;
@@ -60,7 +62,10 @@ public sealed class CatalogProductsController(ICatalogProductService catalogProd
         {
             var response = await _catalogProductService.CreateAsync(request, cancellationToken);
 
-            return Created($"/api/v1/catalog-products/{response.Id}", response);
+            return CreatedAtAction(
+                nameof(GetById),
+                new { version = "1", id = response.Id },
+                response);
         }
         catch (ValidationException exception)
         {

@@ -1,4 +1,5 @@
-﻿using FluentValidation;
+﻿using Asp.Versioning;
+using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 using PricingService.Application.Common.Exceptions;
 using PricingService.Application.ProductPrices;
@@ -6,7 +7,8 @@ using PricingService.Application.ProductPrices;
 namespace PricingService.Api.Controllers;
 
 [ApiController]
-[Route("api/v1/prices")]
+[ApiVersion(1.0)]
+[Route("api/v{version:ApiVersion}/prices")]
 public sealed class PricesController(IProductPriceService productPriceService) : ControllerBase
 {
     private readonly IProductPriceService _productPriceService = productPriceService;
@@ -42,7 +44,10 @@ public sealed class PricesController(IProductPriceService productPriceService) :
         {
             var response = await _productPriceService.SetAsync(request, cancellationToken);
 
-            return Created($"/api/v1/prices/{response.ProductId}", response);
+            return CreatedAtAction(
+                nameof(GetByProductId),
+                new { version = "1", productId = response.ProductId },
+                response);
         }
         catch (ValidationException exception)
         {
