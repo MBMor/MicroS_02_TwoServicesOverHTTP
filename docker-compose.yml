@@ -10,6 +10,8 @@ services:
       ConnectionStrings__CatalogDatabase: Host=catalog-service-db;Port=5432;Database=catalog_service;Username=catalog_user;Password=catalog_password
       PricingService__BaseUrl: http://pricing-service-api:8080
       PricingService__TimeoutSeconds: 3
+      PricingService__RetryCount: 2
+      PricingService__RetryDelayMilliseconds: 200
     ports:
       - "5101:8080"
     depends_on:

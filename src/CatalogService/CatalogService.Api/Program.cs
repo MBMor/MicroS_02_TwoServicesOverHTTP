@@ -7,6 +7,8 @@ using CatalogService.Infrastructure.Persistence;
 using CatalogService.Infrastructure.Pricing;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Http.Resilience;
+using Polly;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -56,6 +58,43 @@ builder.Services.AddHttpClient<IPricingClient, PricingClient>(client =>
     client.BaseAddress = new Uri(pricingServiceOptions.BaseUrl);
 });
 
+if (pricingServiceOptions.TimeoutSeconds <= 0)
+{
+    throw new InvalidOperationException("PricingService:TimeoutSeconds must be greater than 0.");
+}
+
+if (pricingServiceOptions.RetryCount < 0)
+{
+    throw new InvalidOperationException("PricingService:RetryCount must be greater than or equal to 0.");
+}
+
+if (pricingServiceOptions.RetryDelayMilliseconds <= 0)
+{
+    throw new InvalidOperationException("PricingService:RetryDelayMilliseconds must be greater than 0.");
+}
+
+var pricingServiceBaseUrl = pricingServiceOptions.BaseUrl.Trim();
+
+if (!pricingServiceBaseUrl.EndsWith('/'))
+{
+    pricingServiceBaseUrl += "/";
+}
+
+builder.Services.AddHttpClient<IPricingClient, PricingClient>(client =>
+{
+    client.BaseAddress = new Uri(pricingServiceBaseUrl);
+    client.Timeout = TimeSpan.FromSeconds(pricingServiceOptions.TimeoutSeconds);
+})
+.AddResilienceHandler("pricing-service-retry", resilienceBuilder =>
+{
+    resilienceBuilder.AddRetry(new HttpRetryStrategyOptions
+    {
+        MaxRetryAttempts = pricingServiceOptions.RetryCount,
+        Delay = TimeSpan.FromMilliseconds(pricingServiceOptions.RetryDelayMilliseconds),
+        BackoffType = DelayBackoffType.Exponential,
+        UseJitter = true
+    });
+});
 
 builder.Services.AddSingleton<IClock, SystemClock>();
 
