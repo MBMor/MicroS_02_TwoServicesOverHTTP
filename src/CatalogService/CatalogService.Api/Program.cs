@@ -1,4 +1,5 @@
 using Asp.Versioning;
+using CatalogService.Api.ErrorHandling;
 using CatalogService.Application.CatalogProducts;
 using CatalogService.Application.Common;
 using CatalogService.Application.Pricing;
@@ -13,6 +14,8 @@ using Polly;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 
 builder.Services
     .AddApiVersioning(options =>
@@ -52,11 +55,6 @@ if (pricingServiceOptions is null || string.IsNullOrWhiteSpace(pricingServiceOpt
 {
     throw new InvalidOperationException("PricingService:BaseUrl is not configured.");
 }
-
-builder.Services.AddHttpClient<IPricingClient, PricingClient>(client =>
-{
-    client.BaseAddress = new Uri(pricingServiceOptions.BaseUrl);
-});
 
 if (pricingServiceOptions.TimeoutSeconds <= 0)
 {
@@ -107,6 +105,8 @@ builder.Services.AddScoped<IValidator<UpdateCatalogProductRequest>, UpdateCatalo
 
 
 var app = builder.Build();
+
+app.UseExceptionHandler();
 
 if (app.Environment.IsDevelopment())
 {

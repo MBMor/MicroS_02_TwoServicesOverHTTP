@@ -1,6 +1,7 @@
 using Asp.Versioning;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
+using PricingService.Api.ErrorHandling;
 using PricingService.Application.Common;
 using PricingService.Application.ProductPrices;
 using PricingService.Infrastructure.Common;
@@ -9,6 +10,8 @@ using PricingService.Infrastructure.Persistence;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 
 builder.Services
     .AddApiVersioning(options =>
@@ -51,6 +54,8 @@ builder.Services.AddScoped<IValidator<UpdateProductPriceRequest>, UpdateProductP
 
 
 var app = builder.Build();
+
+app.UseExceptionHandler();
 
 if (app.Environment.IsDevelopment())
 {

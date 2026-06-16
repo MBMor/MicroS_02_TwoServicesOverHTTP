@@ -21,16 +21,9 @@ public sealed class CatalogProductsController(ICatalogProductService catalogProd
     [FromQuery] CatalogProductListRequest request,
     CancellationToken cancellationToken)
     {
-        try
-        {
-            var response = await _catalogProductService.ListAsync(request, cancellationToken);
+        var response = await _catalogProductService.ListAsync(request, cancellationToken);
 
-            return Ok(response);
-        }
-        catch (ValidationException exception)
-        {
-            return ToValidationProblem(exception);
-        }
+        return Ok(response);
     }
 
     [HttpGet("{id:guid}")]
@@ -60,33 +53,12 @@ public sealed class CatalogProductsController(ICatalogProductService catalogProd
         [FromBody] CreateCatalogProductRequest request,
         CancellationToken cancellationToken)
     {
-        try
-        {
-            var response = await _catalogProductService.CreateAsync(request, cancellationToken);
+        var response = await _catalogProductService.CreateAsync(request, cancellationToken);
 
-            return CreatedAtAction(
-                nameof(GetById),
-                new { version = "1", id = response.Id },
-                response);
-        }
-        catch (ValidationException exception)
-        {
-            foreach (var error in exception.Errors)
-            {
-                ModelState.AddModelError(error.PropertyName, error.ErrorMessage);
-            }
-
-            return ValidationProblem(ModelState);
-        }
-        catch (DuplicateSkuException exception)
-        {
-            return Conflict(new ProblemDetails
-            {
-                Title = "Duplicate SKU",
-                Detail = exception.Message,
-                Status = StatusCodes.Status409Conflict
-            });
-        }
+        return CreatedAtAction(
+            nameof(GetById),
+            new { version = "1", id = response.Id },
+            response);
     }
 
     [HttpPut("{id:guid}")]
@@ -98,24 +70,17 @@ public sealed class CatalogProductsController(ICatalogProductService catalogProd
     [FromBody] UpdateCatalogProductRequest request,
     CancellationToken cancellationToken)
     {
-        try
-        {
-            var response = await _catalogProductService.UpdateAsync(
-                id,
-                request,
-                cancellationToken);
+        var response = await _catalogProductService.UpdateAsync(
+            id,
+            request,
+            cancellationToken);
 
-            if (response is null)
-            {
-                return NotFound();
-            }
-
-            return Ok(response);
-        }
-        catch (ValidationException exception)
+        if (response is null)
         {
-            return ToValidationProblem(exception);
+            return NotFound();
         }
+
+        return Ok(response);
     }
 
     [HttpDelete("{id:guid}")]
@@ -135,16 +100,6 @@ public sealed class CatalogProductsController(ICatalogProductService catalogProd
         }
 
         return NoContent();
-    }
-
-    private ActionResult ToValidationProblem(ValidationException exception)
-    {
-        foreach (var error in exception.Errors)
-        {
-            ModelState.AddModelError(error.PropertyName, error.ErrorMessage);
-        }
-
-        return ValidationProblem(ModelState);
     }
 
 }

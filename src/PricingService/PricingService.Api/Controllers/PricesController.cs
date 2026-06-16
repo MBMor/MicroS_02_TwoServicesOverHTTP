@@ -40,28 +40,12 @@ public sealed class PricesController(IProductPriceService productPriceService) :
         [FromBody] SetProductPriceRequest request,
         CancellationToken cancellationToken)
     {
-        try
-        {
             var response = await _productPriceService.SetAsync(request, cancellationToken);
 
             return CreatedAtAction(
                 nameof(GetByProductId),
                 new { version = "1", productId = response.ProductId },
                 response);
-        }
-        catch (ValidationException exception)
-        {
-            return ToValidationProblem(exception);
-        }
-        catch (DuplicateProductPriceException exception)
-        {
-            return Conflict(new ProblemDetails
-            {
-                Title = "Duplicate product price",
-                Detail = exception.Message,
-                Status = StatusCodes.Status409Conflict
-            });
-        }
     }
 
     [HttpPut("{productId:guid}")]
@@ -73,8 +57,6 @@ public sealed class PricesController(IProductPriceService productPriceService) :
     [FromBody] UpdateProductPriceRequest request,
     CancellationToken cancellationToken)
     {
-        try
-        {
             var response = await _productPriceService.UpdateAsync(
                 productId,
                 request,
@@ -86,20 +68,5 @@ public sealed class PricesController(IProductPriceService productPriceService) :
             }
 
             return Ok(response);
-        }
-        catch (ValidationException exception)
-        {
-            return ToValidationProblem(exception);
-        }
-    }
-
-    private ActionResult ToValidationProblem(ValidationException exception)
-    {
-        foreach (var error in exception.Errors)
-        {
-            ModelState.AddModelError(error.PropertyName, error.ErrorMessage);
-        }
-
-        return ValidationProblem(ModelState);
     }
 }
