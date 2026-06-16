@@ -11,11 +11,11 @@ public interface ICatalogProductService
     Task<CatalogProductResponse?> GetByIdAsync(
         Guid id,
         CancellationToken cancellationToken);
-    /*
+    
     Task<CatalogProductWithPriceResponse?> GetByIdWithPriceAsync(
         Guid id,
         CancellationToken cancellationToken);
-    */
+    
     Task<PagedResult<CatalogProductResponse>> ListAsync(
         CatalogProductListRequest request,
         CancellationToken cancellationToken);

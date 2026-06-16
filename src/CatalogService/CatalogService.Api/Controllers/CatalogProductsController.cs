@@ -40,7 +40,9 @@ public sealed class CatalogProductsController(ICatalogProductService catalogProd
     Guid id,
     CancellationToken cancellationToken)
     {
-        var response = await _catalogProductService.GetByIdAsync(id, cancellationToken);
+        var response = await _catalogProductService.GetByIdWithPriceAsync(
+            id,
+            cancellationToken);
 
         if (response is null)
         {

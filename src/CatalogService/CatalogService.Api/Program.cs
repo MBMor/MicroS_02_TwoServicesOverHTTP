@@ -1,8 +1,10 @@
 using Asp.Versioning;
 using CatalogService.Application.CatalogProducts;
 using CatalogService.Application.Common;
+using CatalogService.Application.Pricing;
 using CatalogService.Infrastructure.Common;
 using CatalogService.Infrastructure.Persistence;
+using CatalogService.Infrastructure.Pricing;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 
@@ -39,6 +41,21 @@ builder.Services.AddDbContext<CatalogDbContext>(options =>
 {
     options.UseNpgsql(catalogDatabaseConnectionString);
 });
+
+var pricingServiceOptions = builder.Configuration
+    .GetSection(PricingServiceOptions.SectionName)
+    .Get<PricingServiceOptions>();
+
+if (pricingServiceOptions is null || string.IsNullOrWhiteSpace(pricingServiceOptions.BaseUrl))
+{
+    throw new InvalidOperationException("PricingService:BaseUrl is not configured.");
+}
+
+builder.Services.AddHttpClient<IPricingClient, PricingClient>(client =>
+{
+    client.BaseAddress = new Uri(pricingServiceOptions.BaseUrl);
+});
+
 
 builder.Services.AddSingleton<IClock, SystemClock>();
 

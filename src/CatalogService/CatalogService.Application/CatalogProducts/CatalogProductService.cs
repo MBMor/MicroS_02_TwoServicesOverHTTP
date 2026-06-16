@@ -1,5 +1,6 @@
 ﻿using CatalogService.Application.Common;
 using CatalogService.Application.Common.Exceptions;
+using CatalogService.Application.Pricing;
 using CatalogService.Domain.CatalogProducts;
 using FluentValidation;
 
@@ -7,12 +8,14 @@ namespace CatalogService.Application.CatalogProducts;
 
 public sealed class CatalogProductService(
     ICatalogProductRepository repository,
+    IPricingClient pricingClient,
     IValidator<CreateCatalogProductRequest> createValidator,
     IValidator<CatalogProductListRequest> listValidator,
     IValidator<UpdateCatalogProductRequest> updateValidator,
     IClock clock) : ICatalogProductService
 {
     private readonly ICatalogProductRepository _repository = repository;
+    private readonly IPricingClient _pricingClient = pricingClient;
     private readonly IValidator<CreateCatalogProductRequest> _createValidator = createValidator;
     private readonly IValidator<CatalogProductListRequest> _listValidator = listValidator;
     private readonly IValidator<UpdateCatalogProductRequest> _updateValidator = updateValidator;
@@ -47,6 +50,24 @@ public sealed class CatalogProductService(
         await _repository.SaveChangesAsync(cancellationToken);
 
         return MapToResponse(product);
+    }
+
+    public async Task<CatalogProductWithPriceResponse?> GetByIdWithPriceAsync(
+    Guid id,
+    CancellationToken cancellationToken)
+    {
+        var product = await _repository.GetByIdAsync(id, cancellationToken);
+
+        if (product is null)
+        {
+            return null;
+        }
+
+        var priceLookupResult = await _pricingClient.GetPriceByProductIdAsync(
+            product.Id,
+            cancellationToken);
+
+        return MapToWithPriceResponse(product, priceLookupResult);
     }
 
     public async Task<CatalogProductResponse?> GetByIdAsync(
@@ -141,6 +162,25 @@ public sealed class CatalogProductService(
             product.Description,
             product.Sku,
             product.IsActive,
+            product.CreatedAt,
+            product.UpdatedAt);
+    }
+
+    private static CatalogProductWithPriceResponse MapToWithPriceResponse(
+    CatalogProduct product,
+    ProductPriceLookupResult priceLookupResult)
+    {
+        var price = priceLookupResult.Price;
+
+        return new CatalogProductWithPriceResponse(
+            product.Id,
+            product.Name,
+            product.Description,
+            product.Sku,
+            product.IsActive,
+            priceLookupResult.Status == PriceLookupStatus.Available ? price?.Amount : null,
+            priceLookupResult.Status == PriceLookupStatus.Available ? price?.Currency : null,
+            priceLookupResult.Status.ToString(),
             product.CreatedAt,
             product.UpdatedAt);
     }
