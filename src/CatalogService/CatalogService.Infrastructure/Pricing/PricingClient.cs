@@ -16,42 +16,67 @@ public sealed class PricingClient(
         Guid productId,
         CancellationToken cancellationToken)
     {
-        using var response = await _httpClient.GetAsync(
-            $"api/v1/prices/{productId}",
-            cancellationToken);
-
-        if (response.StatusCode == HttpStatusCode.NotFound)
+        try
         {
-            return ProductPriceLookupResult.NotSet();
-        }
+            using var response = await _httpClient.GetAsync(
+                $"api/v1/prices/{productId}",
+                cancellationToken);
 
-        if (!response.IsSuccessStatusCode)
+            if (response.StatusCode == HttpStatusCode.NotFound)
+            {
+                return ProductPriceLookupResult.NotSet();
+            }
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning(
+                    "Pricing Service returned unexpected status code {StatusCode} for product {ProductId}.",
+                    (int)response.StatusCode,
+                    productId);
+
+                response.EnsureSuccessStatusCode();
+            }
+
+            var priceResponse = await response.Content.ReadFromJsonAsync<PricingServicePriceResponse>(
+                cancellationToken);
+
+            if (priceResponse is null)
+            {
+                _logger.LogWarning(
+                    "Pricing Service returned an empty response body for product {ProductId}.",
+                    productId);
+
+                return ProductPriceLookupResult.Unavailable();
+            }
+
+            var price = new ProductPriceDto(
+                priceResponse.ProductId,
+                priceResponse.Amount,
+                priceResponse.Currency);
+
+            return ProductPriceLookupResult.Available(price);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (OperationCanceledException exception)
         {
             _logger.LogWarning(
-                "Pricing Service returned unexpected status code {StatusCode} for product {ProductId}.",
-                (int)response.StatusCode,
+                exception,
+                "Pricing Service request timed out for product {ProductId}.",
                 productId);
 
-            response.EnsureSuccessStatusCode();
+            return ProductPriceLookupResult.Unavailable();
         }
-
-        var priceResponse = await response.Content.ReadFromJsonAsync<PricingServicePriceResponse>(
-            cancellationToken);
-
-        if (priceResponse is null)
+        catch (HttpRequestException exception)
         {
             _logger.LogWarning(
-                "Pricing Service returned an empty response body for product {ProductId}.",
+                exception,
+                "Pricing Service request failed for product {ProductId}.",
                 productId);
 
-            throw new InvalidOperationException("Pricing Service returned an empty response body.");
+            return ProductPriceLookupResult.Unavailable();
         }
-
-        var price = new ProductPriceDto(
-            priceResponse.ProductId,
-            priceResponse.Amount,
-            priceResponse.Currency);
-
-        return ProductPriceLookupResult.Available(price);
     }
 }
