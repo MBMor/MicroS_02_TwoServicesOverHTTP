@@ -1,6 +1,7 @@
 using Asp.Versioning;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.OpenApi;
 using PricingService.Api.ErrorHandling;
 using PricingService.Application.Common;
 using PricingService.Application.ProductPrices;
@@ -28,7 +29,20 @@ builder.Services
         options.SubstituteApiVersionInUrl = true;
     });
 
-builder.Services.AddOpenApi("v1");
+builder.Services.AddOpenApi("v1", options =>
+{
+    options.AddDocumentTransformer((document, context, cancellationToken) =>
+    {
+        document.Info = new OpenApiInfo
+        {
+            Title = "Pricing Service API",
+            Version = "v1",
+            Description = "Pricing Service owns product price data. Catalog Service retrieves prices from this API over HTTP."
+        };
+
+        return Task.CompletedTask;
+    });
+});
 builder.Services.AddHealthChecks();
 
 
@@ -65,6 +79,9 @@ if (app.Environment.IsDevelopment())
     {
         options.SwaggerEndpoint("/openapi/v1.json", "Pricing Service API v1");
         options.RoutePrefix = "swagger";
+        options.DocumentTitle = "Pricing Service API";
+        options.DisplayRequestDuration();
+        options.EnableTryItOutByDefault();
     });
 }
 

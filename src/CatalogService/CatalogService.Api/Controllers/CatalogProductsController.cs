@@ -14,6 +14,11 @@ public sealed class CatalogProductsController(ICatalogProductService catalogProd
 {
     private readonly ICatalogProductService _catalogProductService = catalogProductService;
 
+    /// <summary>
+    /// Lists catalog products with filtering, pagination, and sorting.
+    /// </summary>
+    /// <response code="200">Returns a paged list of catalog products.</response>
+    /// <response code="400">If query parameters are invalid.</response>
     [HttpGet]
     [ProducesResponseType(typeof(PagedResult<CatalogProductResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
@@ -26,6 +31,11 @@ public sealed class CatalogProductsController(ICatalogProductService catalogProd
         return Ok(response);
     }
 
+    /// <summary>
+    /// Gets catalog product details by ID, including price information from Pricing Service.
+    /// </summary>
+    /// <response code="200">Returns catalog product details with price status.</response>
+    /// <response code="404">If the catalog product does not exist.</response>
     [HttpGet("{id:guid}")]
     [ProducesResponseType(typeof(CatalogProductResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -45,6 +55,12 @@ public sealed class CatalogProductsController(ICatalogProductService catalogProd
         return Ok(response);
     }
 
+    /// <summary>
+    /// Creates a new catalog product.
+    /// </summary>
+    /// <response code="201">Returns the created catalog product.</response>
+    /// <response code="400">If the request is invalid.</response>
+    /// <response code="409">If a product with the same SKU already exists.</response>
     [HttpPost]
     [ProducesResponseType(typeof(CatalogProductResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
@@ -61,6 +77,12 @@ public sealed class CatalogProductsController(ICatalogProductService catalogProd
             response);
     }
 
+    /// <summary>
+    /// Updates catalog product metadata.
+    /// </summary>
+    /// <response code="200">Returns the updated catalog product.</response>
+    /// <response code="400">If the request is invalid.</response>
+    /// <response code="404">If the catalog product does not exist.</response>
     [HttpPut("{id:guid}")]
     [ProducesResponseType(typeof(CatalogProductResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
@@ -83,6 +105,11 @@ public sealed class CatalogProductsController(ICatalogProductService catalogProd
         return Ok(response);
     }
 
+    /// <summary>
+    /// Soft deletes a catalog product by setting IsActive to false.
+    /// </summary>
+    /// <response code="204">If the catalog product was deactivated.</response>
+    /// <response code="404">If the catalog product does not exist.</response>
     [HttpDelete("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

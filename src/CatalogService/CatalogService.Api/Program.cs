@@ -9,6 +9,7 @@ using CatalogService.Infrastructure.Pricing;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Http.Resilience;
+using Microsoft.OpenApi;
 using Polly;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -32,7 +33,20 @@ builder.Services
         options.SubstituteApiVersionInUrl = true;
     });
 
-builder.Services.AddOpenApi("v1");
+builder.Services.AddOpenApi("v1", options =>
+{
+    options.AddDocumentTransformer((document, context, cancellationToken) =>
+    {
+        document.Info = new OpenApiInfo
+        {
+            Title = "Catalog Service API",
+            Version = "v1",
+            Description = "Catalog Service manages product catalog metadata. Product prices are owned by Pricing Service and are retrieved over HTTP."
+        };
+
+        return Task.CompletedTask;
+    });
+});
 builder.Services.AddHealthChecks();
 
 var catalogDatabaseConnectionString = builder.Configuration.GetConnectionString("CatalogDatabase");
@@ -116,6 +130,9 @@ if (app.Environment.IsDevelopment())
     {
         options.SwaggerEndpoint("/openapi/v1.json", "Catalog Service API v1");
         options.RoutePrefix = "swagger";
+        options.DocumentTitle = "Catalog Service API";
+        options.DisplayRequestDuration();
+        options.EnableTryItOutByDefault();
     });
 }
 
