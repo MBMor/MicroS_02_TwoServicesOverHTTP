@@ -1,12 +1,15 @@
 using Asp.Versioning;
 using FluentValidation;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.OpenApi;
 using PricingService.Api.ErrorHandling;
 using PricingService.Application.Common;
 using PricingService.Application.ProductPrices;
 using PricingService.Infrastructure.Common;
 using PricingService.Infrastructure.Persistence;
+using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -43,8 +46,6 @@ builder.Services.AddOpenApi("v1", options =>
         return Task.CompletedTask;
     });
 });
-builder.Services.AddHealthChecks();
-
 
 var pricingDatabaseConnectionString = builder.Configuration.GetConnectionString("PricingDatabase");
 
@@ -58,6 +59,13 @@ builder.Services.AddDbContext<PricingDbContext>(options =>
     options.UseNpgsql(pricingDatabaseConnectionString);
 });
 
+builder.Services
+    .AddHealthChecks()
+    .AddDbContextCheck<PricingDbContext>(
+        name: "pricing-database",
+        failureStatus: HealthStatus.Unhealthy,
+        tags: ["database", "postgresql", "ready"]);
+
 builder.Services.AddSingleton<IClock, SystemClock>();
 
 builder.Services.AddScoped<IProductPriceRepository, ProductPriceRepository>();
@@ -65,7 +73,6 @@ builder.Services.AddScoped<IProductPriceService, ProductPriceService>();
 
 builder.Services.AddScoped<IValidator<SetProductPriceRequest>, SetProductPriceRequestValidator>();
 builder.Services.AddScoped<IValidator<UpdateProductPriceRequest>, UpdateProductPriceRequestValidator>();
-
 
 var app = builder.Build();
 
@@ -88,6 +95,46 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 app.MapControllers();
-app.MapHealthChecks("/health");
+
+app.MapHealthChecks("/health", new HealthCheckOptions
+{
+    ResponseWriter = WriteHealthCheckResponse
+});
+
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = _ => false,
+    ResponseWriter = WriteHealthCheckResponse
+});
+
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready"),
+    ResponseWriter = WriteHealthCheckResponse
+});
 
 app.Run();
+
+static async Task WriteHealthCheckResponse(
+    HttpContext context,
+    HealthReport report)
+{
+    context.Response.ContentType = "application/json";
+
+    var response = new
+    {
+        status = report.Status.ToString(),
+        totalDuration = report.TotalDuration.ToString(),
+        entries = report.Entries.ToDictionary(
+            entry => entry.Key,
+            entry => new
+            {
+                status = entry.Value.Status.ToString(),
+                duration = entry.Value.Duration.ToString(),
+                description = entry.Value.Description,
+                error = entry.Value.Exception?.Message
+            })
+    };
+
+    await context.Response.WriteAsync(JsonSerializer.Serialize(response));
+}
