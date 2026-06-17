@@ -61,3 +61,8 @@ docker build \
   --project src/PricingService/PricingService.Infrastructure/PricingService.Infrastructure.csproj \
   --startup-project src/PricingService/PricingService.Api/PricingService.Api.csproj \
   --context PricingDbContext
+
+
+GET /health
+GET /health/live
+GET /health/ready

@@ -17,4 +17,7 @@
     <Project Path="src/PricingService/PricingService.Domain/PricingService.Domain.csproj" />
     <Project Path="src/PricingService/PricingService.Infrastructure/PricingService.Infrastructure.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/CatalogService.Tests.Unit/CatalogService.Tests.Unit.csproj" />
+  </Folder>
 </Solution>
