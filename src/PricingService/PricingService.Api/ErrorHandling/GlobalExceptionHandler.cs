@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using PricingService.Application.Common.Exceptions;
+using System.Text.Json;
 
 namespace PricingService.Api.ErrorHandling;
 
@@ -140,8 +141,10 @@ public sealed class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logge
 
         problemDetails.Extensions["traceId"] = httpContext.TraceIdentifier;
 
-        await httpContext.Response.WriteAsJsonAsync(
+        await JsonSerializer.SerializeAsync(
+            httpContext.Response.Body,
             problemDetails,
-            cancellationToken);
+            problemDetails.GetType(),
+            cancellationToken: cancellationToken);
     }
 }
