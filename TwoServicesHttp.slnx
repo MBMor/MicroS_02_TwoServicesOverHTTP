@@ -22,5 +22,6 @@
     <Project Path="tests/CatalogService.Tests.Unit/CatalogService.Tests.Unit.csproj" />
     <Project Path="tests/PricingService.Tests.Integration/PricingService.Tests.Integration.csproj" />
     <Project Path="tests/PricingService.Tests.Unit/PricingService.Tests.Unit.csproj" />
+    <Project Path="tests/ServiceCommunication.Tests.Integration/ServiceCommunication.Tests.Integration.csproj" />
   </Folder>
 </Solution>
