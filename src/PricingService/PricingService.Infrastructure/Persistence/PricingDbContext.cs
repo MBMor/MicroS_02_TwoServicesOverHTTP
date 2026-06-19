@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using PricingService.Domain.ProductPrices;
 
 namespace PricingService.Infrastructure.Persistence;

@@ -1,4 +1,4 @@
-﻿using CatalogService.Domain.CatalogProducts;
+using CatalogService.Domain.CatalogProducts;
 using FluentValidation;
 
 namespace CatalogService.Application.CatalogProducts;

@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using PricingService.Application.ProductPrices;
 using PricingService.Domain.ProductPrices;
 

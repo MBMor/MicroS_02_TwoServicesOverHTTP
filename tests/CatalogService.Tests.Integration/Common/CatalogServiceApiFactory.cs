@@ -1,4 +1,4 @@
-﻿using CatalogService.Application.Pricing;
+using CatalogService.Application.Pricing;
 using CatalogService.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -52,10 +52,7 @@ public sealed class CatalogServiceApiFactory : WebApplicationFactory<Program>, I
         {
             services.RemoveAll<DbContextOptions<CatalogDbContext>>();
 
-            services.AddDbContext<CatalogDbContext>(options =>
-            {
-                options.UseNpgsql(_postgreSqlContainer.GetConnectionString());
-            });
+            services.AddDbContext<CatalogDbContext>(options => options.UseNpgsql(_postgreSqlContainer.GetConnectionString()));
 
             services.RemoveAll<IPricingClient>();
             services.AddSingleton<IPricingClient>(PricingClient);

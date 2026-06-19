@@ -1,4 +1,4 @@
-﻿namespace PricingService.Domain.ProductPrices;
+namespace PricingService.Domain.ProductPrices;
 
 public static class ProductPriceConstants
 {

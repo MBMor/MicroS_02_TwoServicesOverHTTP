@@ -1,9 +1,9 @@
-﻿namespace PricingService.Domain.ProductPrices;
+namespace PricingService.Domain.ProductPrices;
 
 public sealed class ProductPrice
 {
     private ProductPrice()
-    {}
+    { }
 
     private ProductPrice(
         Guid id,

@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -49,10 +49,7 @@ public sealed class PricingServiceApiFactory : WebApplicationFactory<Program>, I
         {
             services.RemoveAll<DbContextOptions<PricingDbContext>>();
 
-            services.AddDbContext<PricingDbContext>(options =>
-            {
-                options.UseNpgsql(_postgreSqlContainer.GetConnectionString());
-            });
+            services.AddDbContext<PricingDbContext>(options => options.UseNpgsql(_postgreSqlContainer.GetConnectionString()));
         });
     }
 }

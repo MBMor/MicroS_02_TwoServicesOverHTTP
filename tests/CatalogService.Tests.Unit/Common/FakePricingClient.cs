@@ -1,4 +1,4 @@
-﻿using CatalogService.Application.Pricing;
+using CatalogService.Application.Pricing;
 
 namespace CatalogService.Tests.Unit.Common;
 

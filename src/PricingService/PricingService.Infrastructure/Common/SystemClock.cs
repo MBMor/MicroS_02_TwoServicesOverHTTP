@@ -1,4 +1,4 @@
-﻿using PricingService.Application.Common;
+using PricingService.Application.Common;
 
 namespace PricingService.Infrastructure.Common;
 

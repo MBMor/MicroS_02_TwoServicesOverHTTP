@@ -1,3 +1,3 @@
-﻿namespace PricingService.Api;
+namespace PricingService.Api;
 
 public sealed class PricingServiceApiAssemblyMarker;

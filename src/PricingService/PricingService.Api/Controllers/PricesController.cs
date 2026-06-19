@@ -1,7 +1,5 @@
-﻿using Asp.Versioning;
-using FluentValidation;
+using Asp.Versioning;
 using Microsoft.AspNetCore.Mvc;
-using PricingService.Application.Common.Exceptions;
 using PricingService.Application.ProductPrices;
 
 namespace PricingService.Api.Controllers;
@@ -51,12 +49,12 @@ public sealed class PricesController(IProductPriceService productPriceService) :
         [FromBody] SetProductPriceRequest request,
         CancellationToken cancellationToken)
     {
-            var response = await _productPriceService.SetAsync(request, cancellationToken);
+        var response = await _productPriceService.SetAsync(request, cancellationToken);
 
-            return CreatedAtAction(
-                nameof(GetByProductId),
-                new { version = "1", productId = response.ProductId },
-                response);
+        return CreatedAtAction(
+            nameof(GetByProductId),
+            new { version = "1", productId = response.ProductId },
+            response);
     }
 
     /// <summary>
@@ -74,16 +72,16 @@ public sealed class PricesController(IProductPriceService productPriceService) :
     [FromBody] UpdateProductPriceRequest request,
     CancellationToken cancellationToken)
     {
-            var response = await _productPriceService.UpdateAsync(
-                productId,
-                request,
-                cancellationToken);
+        var response = await _productPriceService.UpdateAsync(
+            productId,
+            request,
+            cancellationToken);
 
-            if (response is null)
-            {
-                return NotFound();
-            }
+        if (response is null)
+        {
+            return NotFound();
+        }
 
-            return Ok(response);
+        return Ok(response);
     }
 }

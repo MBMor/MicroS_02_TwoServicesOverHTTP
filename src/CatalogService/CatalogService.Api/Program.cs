@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Asp.Versioning;
 using CatalogService.Api.ErrorHandling;
 using CatalogService.Application.CatalogProducts;
@@ -13,7 +14,6 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Http.Resilience;
 using Microsoft.OpenApi;
 using Polly;
-using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -36,9 +36,7 @@ builder.Services
         options.SubstituteApiVersionInUrl = true;
     });
 
-builder.Services.AddOpenApi("v1", options =>
-{
-    options.AddDocumentTransformer((document, context, cancellationToken) =>
+builder.Services.AddOpenApi("v1", options => options.AddDocumentTransformer((document, context, cancellationToken) =>
     {
         document.Info = new OpenApiInfo
         {
@@ -48,8 +46,7 @@ builder.Services.AddOpenApi("v1", options =>
         };
 
         return Task.CompletedTask;
-    });
-});
+    }));
 
 var catalogDatabaseConnectionString = builder.Configuration.GetConnectionString("CatalogDatabase");
 
@@ -58,10 +55,7 @@ if (string.IsNullOrWhiteSpace(catalogDatabaseConnectionString))
     throw new InvalidOperationException("Connection string 'CatalogDatabase' is not configured.");
 }
 
-builder.Services.AddDbContext<CatalogDbContext>(options =>
-{
-    options.UseNpgsql(catalogDatabaseConnectionString);
-});
+builder.Services.AddDbContext<CatalogDbContext>(options => options.UseNpgsql(catalogDatabaseConnectionString));
 
 builder.Services
     .AddHealthChecks()
@@ -108,15 +102,13 @@ builder.Services
         client.Timeout = TimeSpan.FromSeconds(pricingServiceOptions.TimeoutSeconds);
     })
     .AddResilienceHandler("pricing-service-retry", resilienceBuilder =>
-    {
         resilienceBuilder.AddRetry(new HttpRetryStrategyOptions
         {
             MaxRetryAttempts = pricingServiceOptions.RetryCount,
             Delay = TimeSpan.FromMilliseconds(pricingServiceOptions.RetryDelayMilliseconds),
             BackoffType = DelayBackoffType.Exponential,
             UseJitter = true
-        });
-    });
+        }));
 
 builder.Services.AddSingleton<IClock, SystemClock>();
 

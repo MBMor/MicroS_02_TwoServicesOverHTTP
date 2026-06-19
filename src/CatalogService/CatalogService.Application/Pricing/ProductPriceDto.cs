@@ -1,4 +1,4 @@
-﻿namespace CatalogService.Application.Pricing;
+namespace CatalogService.Application.Pricing;
 
 public sealed record ProductPriceDto(
     Guid ProductId,

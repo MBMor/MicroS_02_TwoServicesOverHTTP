@@ -1,4 +1,4 @@
-﻿using PricingService.Application.ProductPrices;
+using PricingService.Application.ProductPrices;
 using PricingService.Domain.ProductPrices;
 
 namespace PricingService.Tests.Unit.ProductPrices;

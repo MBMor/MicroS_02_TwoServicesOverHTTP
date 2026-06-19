@@ -1,4 +1,4 @@
-﻿namespace CatalogService.Application.Pricing;
+namespace CatalogService.Application.Pricing;
 
 public interface IPricingClient
 {

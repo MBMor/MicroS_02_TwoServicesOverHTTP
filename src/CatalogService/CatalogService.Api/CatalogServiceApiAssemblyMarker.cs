@@ -1,3 +1,3 @@
-﻿namespace CatalogService.Api;
+namespace CatalogService.Api;
 
 public sealed class CatalogServiceApiAssemblyMarker;

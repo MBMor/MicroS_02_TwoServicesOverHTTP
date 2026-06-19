@@ -1,4 +1,4 @@
-﻿using CatalogService.Application.CatalogProducts;
+using CatalogService.Application.CatalogProducts;
 using CatalogService.Application.Common.Exceptions;
 using CatalogService.Application.Pricing;
 using CatalogService.Domain.CatalogProducts;

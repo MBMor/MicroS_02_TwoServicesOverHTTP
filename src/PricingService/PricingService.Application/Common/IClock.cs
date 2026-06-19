@@ -1,4 +1,4 @@
-﻿namespace PricingService.Application.Common;
+namespace PricingService.Application.Common;
 
 public interface IClock
 {

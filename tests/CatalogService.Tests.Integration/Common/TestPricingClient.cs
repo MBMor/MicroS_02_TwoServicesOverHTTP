@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using CatalogService.Application.Pricing;
 
 namespace CatalogService.Tests.Integration.Common;

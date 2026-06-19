@@ -1,4 +1,4 @@
-﻿namespace CatalogService.Application.Common;
+namespace CatalogService.Application.Common;
 
 public interface IClock
 {

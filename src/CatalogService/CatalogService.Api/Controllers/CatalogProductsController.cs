@@ -1,8 +1,6 @@
-﻿using Asp.Versioning;
+using Asp.Versioning;
 using CatalogService.Application.CatalogProducts;
 using CatalogService.Application.Common;
-using CatalogService.Application.Common.Exceptions;
-using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CatalogService.Api.Controllers;

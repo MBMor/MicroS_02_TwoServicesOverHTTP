@@ -1,4 +1,4 @@
-﻿using FluentValidation;
+using FluentValidation;
 using PricingService.Domain.ProductPrices;
 
 namespace PricingService.Application.ProductPrices;

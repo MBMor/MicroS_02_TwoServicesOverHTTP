@@ -1,4 +1,4 @@
-﻿namespace PricingService.Application.Common.Exceptions;
+namespace PricingService.Application.Common.Exceptions;
 
 public sealed class DuplicateProductPriceException : Exception
 {

@@ -1,4 +1,4 @@
-﻿namespace CatalogService.Domain.CatalogProducts;
+namespace CatalogService.Domain.CatalogProducts;
 
 public static class CatalogProductConstants
 {

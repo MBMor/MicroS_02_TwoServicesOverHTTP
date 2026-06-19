@@ -1,4 +1,4 @@
-﻿namespace CatalogService.Infrastructure.Pricing;
+namespace CatalogService.Infrastructure.Pricing;
 
 public sealed class PricingServiceOptions
 {

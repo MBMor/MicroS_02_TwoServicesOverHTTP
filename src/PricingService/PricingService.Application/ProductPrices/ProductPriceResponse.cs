@@ -1,4 +1,4 @@
-﻿namespace PricingService.Application.ProductPrices;
+namespace PricingService.Application.ProductPrices;
 
 public sealed record ProductPriceResponse(
     Guid ProductId,

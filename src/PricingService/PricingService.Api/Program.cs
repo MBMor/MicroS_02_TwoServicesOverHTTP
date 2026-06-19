@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Asp.Versioning;
 using FluentValidation;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -9,7 +10,6 @@ using PricingService.Application.Common;
 using PricingService.Application.ProductPrices;
 using PricingService.Infrastructure.Common;
 using PricingService.Infrastructure.Persistence;
-using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -33,19 +33,17 @@ builder.Services
     });
 
 builder.Services.AddOpenApi("v1", options =>
-{
     options.AddDocumentTransformer((document, context, cancellationToken) =>
-    {
-        document.Info = new OpenApiInfo
         {
-            Title = "Pricing Service API",
-            Version = "v1",
-            Description = "Pricing Service owns product price data. Catalog Service retrieves prices from this API over HTTP."
-        };
+            document.Info = new OpenApiInfo
+            {
+                Title = "Pricing Service API",
+                Version = "v1",
+                Description = "Pricing Service owns product price data. Catalog Service retrieves prices from this API over HTTP."
+            };
 
-        return Task.CompletedTask;
-    });
-});
+            return Task.CompletedTask;
+        }));
 
 var pricingDatabaseConnectionString = builder.Configuration.GetConnectionString("PricingDatabase");
 
@@ -54,10 +52,7 @@ if (string.IsNullOrWhiteSpace(pricingDatabaseConnectionString))
     throw new InvalidOperationException("Connection string 'PricingDatabase' is not configured.");
 }
 
-builder.Services.AddDbContext<PricingDbContext>(options =>
-{
-    options.UseNpgsql(pricingDatabaseConnectionString);
-});
+builder.Services.AddDbContext<PricingDbContext>(options => options.UseNpgsql(pricingDatabaseConnectionString));
 
 builder.Services
     .AddHealthChecks()

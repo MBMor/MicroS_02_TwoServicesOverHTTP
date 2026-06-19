@@ -1,4 +1,4 @@
-﻿using FluentValidation;
+using FluentValidation;
 using PricingService.Application.Common;
 using PricingService.Application.Common.Exceptions;
 using PricingService.Domain.ProductPrices;

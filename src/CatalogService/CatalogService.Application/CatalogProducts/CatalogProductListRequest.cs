@@ -1,4 +1,4 @@
-﻿namespace CatalogService.Application.CatalogProducts;
+namespace CatalogService.Application.CatalogProducts;
 
 public sealed record CatalogProductListRequest
 {

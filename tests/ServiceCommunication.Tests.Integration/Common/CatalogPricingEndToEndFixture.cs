@@ -1,4 +1,4 @@
-﻿using CatalogService.Api;
+using CatalogService.Api;
 using CatalogService.Application.Pricing;
 using CatalogService.Infrastructure.Persistence;
 using CatalogService.Infrastructure.Pricing;
@@ -88,7 +88,7 @@ public sealed class CatalogPricingEndToEndFixture : IAsyncLifetime
 
     private sealed class CatalogApiFactory(
         string catalogConnectionString,
-        CatalogPricingEndToEndFixture.PricingApiFactory pricingApiFactory) 
+        CatalogPricingEndToEndFixture.PricingApiFactory pricingApiFactory)
         : WebApplicationFactory<CatalogServiceApiAssemblyMarker>
     {
         private readonly string _catalogConnectionString = catalogConnectionString;
@@ -102,10 +102,7 @@ public sealed class CatalogPricingEndToEndFixture : IAsyncLifetime
             {
                 services.RemoveAll<DbContextOptions<CatalogDbContext>>();
 
-                services.AddDbContext<CatalogDbContext>(options =>
-                {
-                    options.UseNpgsql(_catalogConnectionString);
-                });
+                services.AddDbContext<CatalogDbContext>(options => options.UseNpgsql(_catalogConnectionString));
 
                 services.RemoveAll<IPricingClient>();
 
@@ -121,7 +118,7 @@ public sealed class CatalogPricingEndToEndFixture : IAsyncLifetime
         }
     }
 
-    private sealed class PricingApiFactory(string pricingConnectionString) 
+    private sealed class PricingApiFactory(string pricingConnectionString)
         : WebApplicationFactory<PricingServiceApiAssemblyMarker>
     {
         private readonly string _pricingConnectionString = pricingConnectionString;
@@ -134,10 +131,7 @@ public sealed class CatalogPricingEndToEndFixture : IAsyncLifetime
             {
                 services.RemoveAll<DbContextOptions<PricingDbContext>>();
 
-                services.AddDbContext<PricingDbContext>(options =>
-                {
-                    options.UseNpgsql(_pricingConnectionString);
-                });
+                services.AddDbContext<PricingDbContext>(options => options.UseNpgsql(_pricingConnectionString));
             });
         }
     }

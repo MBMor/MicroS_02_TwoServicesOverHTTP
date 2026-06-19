@@ -1,10 +1,10 @@
-﻿using FluentValidation;
+using System.Text.Json;
+using FluentValidation;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using PricingService.Application.Common.Exceptions;
-using System.Text.Json;
 
 namespace PricingService.Api.ErrorHandling;
 

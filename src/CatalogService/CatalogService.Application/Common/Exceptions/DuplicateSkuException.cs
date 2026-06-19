@@ -1,4 +1,4 @@
-﻿namespace CatalogService.Application.Common.Exceptions;
+namespace CatalogService.Application.Common.Exceptions;
 
 public sealed class DuplicateSkuException : Exception
 {

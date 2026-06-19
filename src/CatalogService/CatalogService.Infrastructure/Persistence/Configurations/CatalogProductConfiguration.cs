@@ -1,4 +1,4 @@
-﻿using CatalogService.Domain.CatalogProducts;
+using CatalogService.Domain.CatalogProducts;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 

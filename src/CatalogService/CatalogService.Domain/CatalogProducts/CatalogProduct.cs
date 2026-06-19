@@ -1,9 +1,9 @@
-﻿namespace CatalogService.Domain.CatalogProducts;
+namespace CatalogService.Domain.CatalogProducts;
 
 public sealed class CatalogProduct
 {
     private CatalogProduct()
-    {}
+    { }
 
     private CatalogProduct(
         Guid id,

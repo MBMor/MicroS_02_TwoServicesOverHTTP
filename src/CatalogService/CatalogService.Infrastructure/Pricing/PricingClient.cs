@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using System.Net.Http.Json;
 using CatalogService.Application.Pricing;
 using Microsoft.Extensions.Logging;

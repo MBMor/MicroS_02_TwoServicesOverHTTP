@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using System.Net.Http.Json;
 using CatalogService.Application.CatalogProducts;
 using PricingService.Application.ProductPrices;
@@ -7,7 +7,7 @@ using Xunit;
 
 namespace ServiceCommunication.Tests.Integration.CatalogToPricing;
 
-public sealed class CatalogToPricingHttpTests(CatalogPricingEndToEndFixture fixture) 
+public sealed class CatalogToPricingHttpTests(CatalogPricingEndToEndFixture fixture)
     : IClassFixture<CatalogPricingEndToEndFixture>
 {
     private readonly HttpClient _catalogClient = fixture.CatalogClient;

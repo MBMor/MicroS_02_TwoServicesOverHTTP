@@ -1,10 +1,10 @@
-﻿using CatalogService.Application.Common.Exceptions;
+using System.Text.Json;
+using CatalogService.Application.Common.Exceptions;
 using FluentValidation;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
-using System.Text.Json;
 
 namespace CatalogService.Api.ErrorHandling;
 

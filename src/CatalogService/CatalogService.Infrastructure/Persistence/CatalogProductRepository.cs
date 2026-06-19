@@ -1,4 +1,4 @@
-﻿using CatalogService.Application.CatalogProducts;
+using CatalogService.Application.CatalogProducts;
 using CatalogService.Domain.CatalogProducts;
 using Microsoft.EntityFrameworkCore;
 
