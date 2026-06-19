@@ -1,0 +1,31 @@
+version: 2
+
+updates:
+  - package-ecosystem: "nuget"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      dotnet-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
+        patterns:
+          - "*"
+    ignore:
+      - dependency-name: "Microsoft.EntityFrameworkCore"
+        update-types:
+          - "version-update:semver-major"
+      - dependency-name: "Microsoft.EntityFrameworkCore.Design"
+        update-types:
+          - "version-update:semver-major"
+      - dependency-name: "Npgsql.EntityFrameworkCore.PostgreSQL"
+        update-types:
+          - "version-update:semver-major"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
