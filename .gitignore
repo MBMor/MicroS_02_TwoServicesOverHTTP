@@ -27,3 +27,8 @@ coverage/
 # OS files
 .DS_Store
 Thumbs.db
+# Coverage reports
+coveragereport/
+coverage/
+coverage-results/
+*.cobertura.xml

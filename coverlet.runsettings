@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RunSettings>
+  <DataCollectionRunSettings>
+    <DataCollectors>
+      <DataCollector friendlyName="XPlat Code Coverage">
+        <Configuration>
+          <Format>cobertura</Format>
+
+          <ExcludeByAttribute>
+            CompilerGeneratedAttribute,
+            GeneratedCodeAttribute,
+            ExcludeFromCodeCoverageAttribute
+          </ExcludeByAttribute>
+
+          <ExcludeByFile>
+            **/obj/**/*.cs,
+            **/*.g.cs,
+            **/*.generated.cs,
+            **/*SourceGenerators*/**/*.cs,
+            **/Microsoft.AspNetCore.OpenApi.SourceGenerators/**/*.cs
+          </ExcludeByFile>
+
+          <Exclude>
+            [*.Tests]*,
+            [*]Microsoft.AspNetCore.OpenApi.Generated.*
+          </Exclude>
+
+          <IncludeTestAssembly>false</IncludeTestAssembly>
+        </Configuration>
+      </DataCollector>
+    </DataCollectors>
+  </DataCollectionRunSettings>
+</RunSettings>

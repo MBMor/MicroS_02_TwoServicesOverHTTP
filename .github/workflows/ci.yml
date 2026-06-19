@@ -38,6 +38,9 @@ jobs:
       - name: Show .NET info
         run: dotnet --info
 
+      - name: Restore tools
+        run: dotnet tool restore
+
       - name: Restore
         run: dotnet restore ${{ env.SOLUTION_FILE }}
 
@@ -48,18 +51,41 @@ jobs:
         run: dotnet build ${{ env.SOLUTION_FILE }} --configuration Release --no-restore
 
       - name: Test with coverage
-        run: >
-          dotnet test ${{ env.SOLUTION_FILE }}
-          --configuration Release
-          --no-build
-          --verbosity normal
-          --collect:"XPlat Code Coverage"
-          --results-directory TestResults
+        run: |
+          dotnet test ${{ env.SOLUTION_FILE }} \
+            --configuration Release \
+            --no-build \
+            --verbosity normal \
+            --collect:"XPlat Code Coverage" \
+            --settings coverlet.runsettings \
+            --results-directory TestResults
 
-      - name: Upload coverage results
+      - name: Install ReportGenerator
+        run: dotnet tool install --global dotnet-reportgenerator-globaltool
+
+      - name: Generate coverage report
+        run: |
+          reportgenerator \
+            -reports:"TestResults/**/coverage.cobertura.xml" \
+            -targetdir:"coveragereport" \
+            -reporttypes:"Html;HtmlSummary;Cobertura;MarkdownSummaryGithub" \
+            -assemblyfilters:"+CatalogService.*;+PricingService.*;-*.Tests.*" \
+            -classfilters:"-Microsoft.AspNetCore.OpenApi.Generated.*" \
+            -filefilters:"-**/obj/**;-**/*.g.cs;-**/*.generated.cs;-**/*SourceGenerators*"
+
+      - name: Add coverage summary to job summary
+        run: cat coveragereport/SummaryGithub.md >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coveragereport
+
+      - name: Upload raw coverage files
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-results
+          name: raw-coverage-files
           path: TestResults/**/coverage.cobertura.xml
           if-no-files-found: warn
