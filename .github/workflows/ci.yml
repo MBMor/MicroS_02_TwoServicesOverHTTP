@@ -61,12 +61,9 @@ jobs:
             --settings coverlet.runsettings \
             --results-directory TestResults
 
-      - name: Install ReportGenerator
-        run: dotnet tool install --global dotnet-reportgenerator-globaltool
-
       - name: Generate coverage report
         run: |
-          reportgenerator \
+          dotnet reportgenerator \
             -reports:"TestResults/**/coverage.cobertura.xml" \
             -targetdir:"coveragereport" \
             -reporttypes:"Html;HtmlSummary;Cobertura;MarkdownSummaryGithub" \

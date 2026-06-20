@@ -32,3 +32,16 @@ coveragereport/
 coverage/
 coverage-results/
 *.cobertura.xml
+# MSBuild binary logs
+*.binlog
+
+# Security scan outputs
+*.sarif
+
+# SBOM outputs
+sbom/
+*.spdx.json
+*.cyclonedx.json
+
+# Temporary scratch files
+misc.txt
