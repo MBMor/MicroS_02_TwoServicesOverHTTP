@@ -85,15 +85,81 @@ jobs:
             -MinimumLineCoverage "${{ env.MINIMUM_LINE_COVERAGE }}"
 
       - name: Upload coverage report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-report
           path: coveragereport
 
       - name: Upload raw coverage files
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: raw-coverage-files
           path: TestResults/**/coverage.cobertura.xml
+          if-no-files-found: warn
+
+  docker-security-scan:
+    name: Docker image security scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: build-and-test
+
+    env:
+      CATALOG_IMAGE: micros-02-catalog-service-api:ci
+      PRICING_IMAGE: micros-02-pricing-service-api:ci
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Build Catalog Service Docker image
+        run: |
+          docker build \
+          --file src/CatalogService/CatalogService.Api/Dockerfile \
+          --tag ${{ env.CATALOG_IMAGE }} \
+          .
+
+      - name: Build Pricing Service Docker image
+        run: |
+          docker build \
+          --file src/PricingService/PricingService.Api/Dockerfile \
+          --tag ${{ env.PRICING_IMAGE }} \
+          .
+
+      - name: Scan Catalog Service Docker image
+        id: catalog-scan
+        uses: anchore/scan-action@v7.4.0
+        with:
+          image: ${{ env.CATALOG_IMAGE }}
+          fail-build: true
+          severity-cutoff: high
+          only-fixed: true
+          output-format: sarif
+          output-file: catalog-service-grype.sarif
+
+      - name: Scan Pricing Service Docker image
+        id: pricing-scan
+        uses: anchore/scan-action@v7.4.0
+        with:
+          image: ${{ env.PRICING_IMAGE }}
+          fail-build: true
+          severity-cutoff: high
+          only-fixed: true
+          output-format: sarif
+          output-file: pricing-service-grype.sarif
+
+      - name: Upload Catalog Service scan report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: catalog-service-vulnerability-scan
+          path: catalog-service-grype.sarif
+          if-no-files-found: warn
+
+      - name: Upload Pricing Service scan report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: pricing-service-vulnerability-scan
+          path: pricing-service-grype.sarif
           if-no-files-found: warn
