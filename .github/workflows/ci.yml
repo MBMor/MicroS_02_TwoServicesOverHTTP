@@ -148,6 +148,25 @@ jobs:
           output-format: sarif
           output-file: pricing-service-grype.sarif
 
+      - name: Create SBOM output directory
+        run: mkdir -p sbom
+
+      - name: Generate Catalog Service SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ env.CATALOG_IMAGE }}
+          format: spdx-json
+          output-file: sbom/catalog-service.spdx.json
+          upload-artifact: false
+
+      - name: Generate Pricing Service SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ env.PRICING_IMAGE }}
+          format: spdx-json
+          output-file: sbom/pricing-service.spdx.json
+          upload-artifact: false
+
       - name: Upload Catalog Service scan report
         if: always()
         uses: actions/upload-artifact@v7
@@ -162,4 +181,12 @@ jobs:
         with:
           name: pricing-service-vulnerability-scan
           path: pricing-service-grype.sarif
+          if-no-files-found: warn
+
+      - name: Upload Docker image SBOMs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: docker-image-sboms
+          path: sbom/*.spdx.json
           if-no-files-found: warn
