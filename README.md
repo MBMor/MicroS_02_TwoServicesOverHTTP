@@ -1,4 +1,4 @@
-#Two Services over HTTP
+# Two Services over HTTP
 
 This repository contains a small microservices learning project built with **.NET**, **ASP.NET Core**, **PostgreSQL**, **EF Core**, **Docker Compose**, and **HTTP service-to-service communication**.
 
@@ -46,12 +46,12 @@ Pricing Service does not know anything about product metadata such as name, desc
 ## Architecture overview
 
 ```text
-                           HTTP
-+------------------+     request      +------------------+
-| Catalog Service  |  ------------->  | Pricing Service  |
-|                  |                  |                  |
-| Catalog DB       |                  | Pricing DB       |
-+------------------+                  +------------------+
+                HTTP request
++------------------+        +------------------+
+| Catalog Service  | -----> | Pricing Service  |
+|                  |        |                  |
+| Catalog DB       |        | Pricing DB       |
++------------------+        +------------------+
 ```
 
 Each service has its own database:
@@ -89,7 +89,14 @@ This project demonstrates:
 * unit tests
 * integration tests
 * Testcontainers with PostgreSQL
+* code coverage collection
+* HTML coverage reports
+* coverage threshold check
 * GitHub Actions CI pipeline
+* Docker Compose smoke test
+* Docker image vulnerability scanning
+* Docker image SBOM generation
+* non-root Docker containers
 
 ---
 
@@ -108,7 +115,11 @@ This project demonstrates:
 * xUnit
 * WebApplicationFactory
 * Testcontainers
+* Coverlet
+* ReportGenerator
 * GitHub Actions
+* Anchore Grype
+* Anchore Syft / SBOM
 
 ---
 
@@ -134,6 +145,17 @@ tests/
   PricingService.Tests.Unit/
   PricingService.Tests.Integration/
   ServiceCommunication.Tests.Integration/
+
+scripts/
+  check-coverage.ps1
+
+docs/
+  adr/
+
+.github/
+  workflows/
+    ci.yml
+  dependabot.yml
 ```
 
 ---
@@ -148,6 +170,15 @@ When running locally through Docker Compose:
 | Pricing Service API | `http://localhost:5102` |
 | Catalog PostgreSQL  | `localhost:5433`        |
 | Pricing PostgreSQL  | `localhost:5434`        |
+
+Inside Docker Compose network:
+
+| Service             | Internal URL                      |
+| ------------------- | --------------------------------- |
+| Catalog Service API | `http://catalog-service-api:8080` |
+| Pricing Service API | `http://pricing-service-api:8080` |
+| Catalog PostgreSQL  | `catalog-service-db:5432`         |
+| Pricing PostgreSQL  | `pricing-service-db:5432`         |
 
 ---
 
@@ -194,6 +225,14 @@ http://localhost:5102/health/ready
 
 `/health/ready` checks whether the service can access its PostgreSQL database.
 
+Important note:
+
+```text
+A healthy database connection does not automatically mean that EF Core migrations were applied.
+```
+
+If Docker volumes were deleted, the database can be reachable but tables may still be missing until migrations are applied.
+
 ---
 
 ## Prerequisites
@@ -209,6 +248,7 @@ Optional tools:
 * DBeaver
 * Postman
 * curl
+* PowerShell 7
 
 ---
 
@@ -267,6 +307,77 @@ This is intentional.
 
 Automatic migrations on startup can be useful in simple local development scenarios, but in real environments they are a production trade-off and should be handled carefully.
 
+If you run:
+
+```bash
+docker compose down -v
+```
+
+Docker deletes PostgreSQL volumes.
+
+That also deletes database tables.
+
+After that, run migrations again before testing API business endpoints.
+
+---
+
+## Docker Compose health checks
+
+The Docker Compose stack includes health checks for:
+
+* Catalog PostgreSQL
+* Pricing PostgreSQL
+* Catalog Service API
+* Pricing Service API
+
+API containers are checked through:
+
+```text
+/health/ready
+```
+
+Run:
+
+```bash
+docker compose ps
+```
+
+Expected result:
+
+```text
+catalog-service-api     healthy
+pricing-service-api     healthy
+catalog-service-db      healthy
+pricing-service-db      healthy
+```
+
+Docker Compose smoke test is also executed in CI.
+
+---
+
+## Container hardening
+
+API containers run as a non-root user.
+
+The Dockerfiles use:
+
+```dockerfile
+USER app
+```
+
+The APIs listen on port `8080` inside the container.
+
+Docker Compose maps the internal ports to host ports:
+
+```text
+Catalog Service API: 5101 -> 8080
+Pricing Service API: 5102 -> 8080
+```
+
+This is a basic container hardening step.
+
+The application process does not run as root inside the container.
+
 ---
 
 ## API endpoints
@@ -320,13 +431,11 @@ NotSet
 Unavailable
 ```
 
-Meaning:
-
-| Status        | Meaning                                                           |
-| ------------- | ----------------------------------------------------------------- |
-| `Available`   | Pricing Service returned a price                                  |
-| `NotSet`      | Pricing Service is available, but no price exists for the product |
-| `Unavailable` | Pricing Service is unavailable, timed out, or failed              |
+| Status        | Meaning                                                            |
+| ------------- | ------------------------------------------------------------------ |
+| `Available`   | Pricing Service returned a price.                                  |
+| `NotSet`      | Pricing Service is available, but no price exists for the product. |
+| `Unavailable` | Pricing Service is unavailable, timed out, or failed.              |
 
 ---
 
@@ -504,7 +613,7 @@ application/problem+json
 Run all tests:
 
 ```bash
-dotnet test MicroS_02_TwoServicesHttp.sln
+dotnet test TwoServicesHttp.slnx
 ```
 
 Run unit tests only:
@@ -530,33 +639,58 @@ They do not require manually running Docker Compose.
 
 ## Test coverage
 
-The project includes:
+The project collects coverage using Coverlet:
 
-```text
-Catalog Service unit tests
-Pricing Service unit tests
-Catalog Service integration tests
-Pricing Service integration tests
-Catalog-to-Pricing HTTP integration tests
+```bash
+dotnet test TwoServicesHttp.slnx \
+  --collect:"XPlat Code Coverage" \
+  --settings coverlet.runsettings \
+  --results-directory TestResults
 ```
 
-The integration tests cover:
+Coverage output is generated as:
 
-* real ASP.NET Core pipeline
-* routing
-* controllers
-* model binding
-* FluentValidation
-* global exception handler
-* Problem Details
-* EF Core
-* PostgreSQL
-* migrations
-* service-to-service HTTP communication
+```text
+coverage.cobertura.xml
+```
+
+The CI pipeline also generates an HTML coverage report using ReportGenerator.
+
+To generate the report locally:
+
+```bash
+dotnet tool restore
+
+dotnet tool run reportgenerator -- \
+  -reports:"TestResults/**/coverage.cobertura.xml" \
+  -targetdir:"coveragereport" \
+  -reporttypes:"Html;HtmlSummary;Cobertura;MarkdownSummaryGithub" \
+  -assemblyfilters:"+CatalogService.*;+PricingService.*;-*.Tests.*" \
+  -classfilters:"-Microsoft.AspNetCore.OpenApi.Generated.*" \
+  -filefilters:"-**/obj/**;-**/*.g.cs;-**/*.generated.cs;-**/*SourceGenerators*"
+```
+
+Open:
+
+```text
+coveragereport/index.html
+```
+
+The project also contains a coverage threshold check:
+
+```text
+scripts/check-coverage.ps1
+```
+
+Current minimum line coverage:
+
+```text
+60 %
+```
 
 ---
 
-## CI
+## CI pipeline
 
 The repository contains a GitHub Actions workflow:
 
@@ -572,17 +706,165 @@ pull_request
 workflow_dispatch
 ```
 
-It performs:
+It contains these jobs:
 
 ```text
-dotnet restore
-dotnet build
-dotnet test
+build-and-test
+docker-compose-smoke-test
+docker-security-scan
 ```
 
 ---
 
+### build-and-test job
+
+This job performs:
+
+```text
+dotnet tool restore
+dotnet restore
+dotnet format --verify-no-changes
+dotnet build
+dotnet test with coverage
+HTML coverage report generation
+coverage threshold check
+coverage artifact upload
+```
+
+Artifacts:
+
+```text
+coverage-report
+raw-coverage-files
+```
+
+---
+
+### docker-compose-smoke-test job
+
+This job performs:
+
+```text
+docker compose config
+docker compose up --build --wait
+Catalog /health/ready check
+Pricing /health/ready check
+docker compose down --volumes cleanup
+```
+
+This verifies that the Docker Compose stack can be built and started in CI.
+
+It is intentionally a smoke test.
+
+It does not run the full business scenario because EF Core migrations are not automatically applied in the Docker Compose startup flow.
+
+---
+
+### docker-security-scan job
+
+This job builds Docker images for:
+
+```text
+Catalog Service API
+Pricing Service API
+```
+
+Then it performs vulnerability scanning using Anchore/Grype.
+
+The scan fails the build for fixable high severity vulnerabilities.
+
+Artifacts:
+
+```text
+catalog-service-vulnerability-scan
+pricing-service-vulnerability-scan
+```
+
+---
+
+## SBOM generation
+
+The CI pipeline generates SBOM files for both Docker images.
+
+SBOM stands for:
+
+```text
+Software Bill of Materials
+```
+
+It is a machine-readable list of software components included in the image.
+
+Generated SBOM files:
+
+```text
+catalog-service.spdx.json
+pricing-service.spdx.json
+```
+
+Artifact:
+
+```text
+docker-image-sboms
+```
+
+The SBOM format is:
+
+```text
+SPDX JSON
+```
+
+---
+
+## Dependabot
+
+The repository contains Dependabot configuration:
+
+```text
+.github/dependabot.yml
+```
+
+Dependabot checks:
+
+```text
+NuGet packages
+GitHub Actions
+```
+
+NuGet package versions are centralized in:
+
+```text
+Directory.Packages.props
+```
+
+---
+
+## Shared build configuration
+
+The repository uses:
+
+```text
+Directory.Build.props
+Directory.Packages.props
+.editorconfig
+```
+
+Purpose:
+
+| File                       | Purpose                               |
+| -------------------------- | ------------------------------------- |
+| `Directory.Build.props`    | Shared MSBuild settings.              |
+| `Directory.Packages.props` | Central NuGet package versions.       |
+| `.editorconfig`            | Shared formatting and C# style rules. |
+
+---
+
 ## Design decisions
+
+Detailed architecture decisions are documented in:
+
+```text
+docs/adr/
+```
 
 ### Database per service
 
@@ -632,6 +914,8 @@ Migrations are applied manually.
 
 This keeps schema changes explicit and visible.
 
+In production-like systems, migrations are usually handled as an explicit deployment step.
+
 ---
 
 ## Main trade-off demonstrated
@@ -666,6 +950,8 @@ Stop containers and remove volumes:
 docker compose down -v
 ```
 
+After removing volumes, apply EF Core migrations again before testing business endpoints.
+
 ---
 
 ## Status
@@ -679,13 +965,26 @@ Implemented:
 * API versioning
 * Swagger/OpenAPI
 * health checks
+* Docker Compose health checks
 * timeout
 * retry
 * fallback
 * Problem Details
 * unit tests
 * integration tests
+* Catalog-to-Pricing HTTP integration test
+* code coverage collection
+* HTML coverage report
+* coverage threshold check
 * GitHub Actions CI
+* Docker Compose smoke test in CI
+* Docker image vulnerability scanning
+* Docker image SBOM generation
+* non-root API containers
+* Dependabot
+* central package management
+* shared build settings
+* `.editorconfig`
 
 Not implemented:
 
@@ -696,5 +995,4 @@ Not implemented:
 * metrics dashboard
 * Kubernetes
 * production deployment
-
----
+* automatic migrations on startup
