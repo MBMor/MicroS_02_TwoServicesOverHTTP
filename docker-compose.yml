@@ -6,7 +6,7 @@ services:
     container_name: micros-02-catalog-service-api
     environment:
       ASPNETCORE_ENVIRONMENT: Development
-      ASPNETCORE_URLS: http://+:8080
+      ASPNETCORE_HTTP_PORTS: 8080
       ConnectionStrings__CatalogDatabase: Host=catalog-service-db;Port=5432;Database=catalog_service;Username=catalog_user;Password=catalog_password
       PricingService__BaseUrl: http://pricing-service-api:8080
       PricingService__TimeoutSeconds: 3
@@ -33,7 +33,7 @@ services:
     container_name: micros-02-pricing-service-api
     environment:
       ASPNETCORE_ENVIRONMENT: Development
-      ASPNETCORE_URLS: http://+:8080
+      ASPNETCORE_HTTP_PORTS: 8080
       ConnectionStrings__PricingDatabase: Host=pricing-service-db;Port=5432;Database=pricing_service;Username=pricing_user;Password=pricing_password
     ports:
       - "5102:8080"
