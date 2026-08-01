@@ -45,3 +45,6 @@ sbom/
 
 # Temporary scratch files
 misc.txt
+
+# Local Kubernetes secrets
+deploy/kubernetes/local/secrets.local.yaml
