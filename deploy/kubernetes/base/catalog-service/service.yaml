@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: catalog-service
+  namespace: micros-02-qa
+  labels:
+    app.kubernetes.io/name: catalog-service
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: micros-02-two-services-over-http
+spec:
+  type: ClusterIP
+
+  selector:
+    app.kubernetes.io/name: catalog-service
+    app.kubernetes.io/component: api
+
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: http
