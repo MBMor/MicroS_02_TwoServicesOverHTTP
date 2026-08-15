@@ -1,0 +1,119 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pricing-service
+  namespace: micros-02-qa
+  labels:
+    app.kubernetes.io/name: pricing-service
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: micros-02-two-services-over-http
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5
+  progressDeadlineSeconds: 120
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: pricing-service
+      app.kubernetes.io/component: api
+
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: pricing-service
+        app.kubernetes.io/component: api
+        app.kubernetes.io/part-of: micros-02-two-services-over-http
+    spec:
+      terminationGracePeriodSeconds: 30
+
+      containers:
+        - name: pricing-service
+          image: micros-02/pricing-service:1.0.0
+          imagePullPolicy: IfNotPresent
+
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+
+          env:
+            - name: ASPNETCORE_ENVIRONMENT
+              valueFrom:
+                configMapKeyRef:
+                  name: pricing-service-config
+                  key: ASPNETCORE_ENVIRONMENT
+
+            - name: ASPNETCORE_HTTP_PORTS
+              valueFrom:
+                configMapKeyRef:
+                  name: pricing-service-config
+                  key: ASPNETCORE_HTTP_PORTS
+
+            - name: PRICING_DATABASE_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: pricing-database-secret
+                  key: postgres-database
+
+            - name: PRICING_DATABASE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: pricing-database-secret
+                  key: postgres-username
+
+            - name: PRICING_DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: pricing-database-secret
+                  key: postgres-password
+
+            - name: ConnectionStrings__PricingDatabase
+              value: >-
+                Host=pricing-service-db;
+                Port=5432;
+                Database=$(PRICING_DATABASE_NAME);
+                Username=$(PRICING_DATABASE_USERNAME);
+                Password=$(PRICING_DATABASE_PASSWORD)
+
+          startupProbe:
+            httpGet:
+              path: /health/live
+              port: http
+              scheme: HTTP
+            periodSeconds: 2
+            timeoutSeconds: 2
+            failureThreshold: 30
+
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+              scheme: HTTP
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+            successThreshold: 1
+
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: http
+              scheme: HTTP
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+            successThreshold: 1
+
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi

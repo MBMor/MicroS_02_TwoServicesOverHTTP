@@ -112,6 +112,7 @@ jobs:
       - name: Build Catalog Service Docker image
         run: |
           docker build \
+          --pull \
           --file src/CatalogService/CatalogService.Api/Dockerfile \
           --tag ${{ env.CATALOG_IMAGE }} \
           .
@@ -119,6 +120,7 @@ jobs:
       - name: Build Pricing Service Docker image
         run: |
           docker build \
+          --pull \
           --file src/PricingService/PricingService.Api/Dockerfile \
           --tag ${{ env.PRICING_IMAGE }} \
           .

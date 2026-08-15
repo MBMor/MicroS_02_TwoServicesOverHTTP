@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: catalog-service-db-headless
+  namespace: micros-02-qa
+  labels:
+    app.kubernetes.io/name: catalog-service-db
+    app.kubernetes.io/component: database
+    app.kubernetes.io/part-of: micros-02-two-services-over-http
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: catalog-service-db
+    app.kubernetes.io/component: database
+  ports:
+    - name: postgresql
+      protocol: TCP
+      port: 5432
+      targetPort: postgresql
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: catalog-service-db
+  namespace: micros-02-qa
+  labels:
+    app.kubernetes.io/name: catalog-service-db
+    app.kubernetes.io/component: database
+    app.kubernetes.io/part-of: micros-02-two-services-over-http
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: catalog-service-db
+    app.kubernetes.io/component: database
+  ports:
+    - name: postgresql
+      protocol: TCP
+      port: 5432
+      targetPort: postgresql

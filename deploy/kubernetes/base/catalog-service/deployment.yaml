@@ -1,0 +1,143 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: catalog-service
+  namespace: micros-02-qa
+  labels:
+    app.kubernetes.io/name: catalog-service
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: micros-02-two-services-over-http
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5
+  progressDeadlineSeconds: 120
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: catalog-service
+      app.kubernetes.io/component: api
+
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: catalog-service
+        app.kubernetes.io/component: api
+        app.kubernetes.io/part-of: micros-02-two-services-over-http
+    spec:
+      terminationGracePeriodSeconds: 30
+
+      containers:
+        - name: catalog-service
+          image: micros-02/catalog-service:1.0.0
+          imagePullPolicy: IfNotPresent
+
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+
+          env:
+            - name: ASPNETCORE_ENVIRONMENT
+              valueFrom:
+                configMapKeyRef:
+                  name: catalog-service-config
+                  key: ASPNETCORE_ENVIRONMENT
+
+            - name: ASPNETCORE_HTTP_PORTS
+              valueFrom:
+                configMapKeyRef:
+                  name: catalog-service-config
+                  key: ASPNETCORE_HTTP_PORTS
+
+            - name: PricingService__BaseUrl
+              valueFrom:
+                configMapKeyRef:
+                  name: catalog-service-config
+                  key: PricingService__BaseUrl
+
+            - name: PricingService__TimeoutSeconds
+              valueFrom:
+                configMapKeyRef:
+                  name: catalog-service-config
+                  key: PricingService__TimeoutSeconds
+
+            - name: PricingService__RetryCount
+              valueFrom:
+                configMapKeyRef:
+                  name: catalog-service-config
+                  key: PricingService__RetryCount
+
+            - name: PricingService__RetryDelayMilliseconds
+              valueFrom:
+                configMapKeyRef:
+                  name: catalog-service-config
+                  key: PricingService__RetryDelayMilliseconds
+
+            - name: CATALOG_DATABASE_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: catalog-database-secret
+                  key: postgres-database
+
+            - name: CATALOG_DATABASE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: catalog-database-secret
+                  key: postgres-username
+
+            - name: CATALOG_DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: catalog-database-secret
+                  key: postgres-password
+
+            - name: ConnectionStrings__CatalogDatabase
+              value: >-
+                Host=catalog-service-db;
+                Port=5432;
+                Database=$(CATALOG_DATABASE_NAME);
+                Username=$(CATALOG_DATABASE_USERNAME);
+                Password=$(CATALOG_DATABASE_PASSWORD)
+
+          startupProbe:
+            httpGet:
+              path: /health/live
+              port: http
+              scheme: HTTP
+            periodSeconds: 2
+            timeoutSeconds: 2
+            failureThreshold: 30
+
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+              scheme: HTTP
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+            successThreshold: 1
+
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: http
+              scheme: HTTP
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+            successThreshold: 1
+
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi

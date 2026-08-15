@@ -1,0 +1,68 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: pricing-database-migration
+  namespace: micros-02-qa
+  labels:
+    app.kubernetes.io/name: pricing-database-migration
+    app.kubernetes.io/component: migration
+    app.kubernetes.io/part-of: micros-02-two-services-over-http
+spec:
+  backoffLimit: 1
+
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: pricing-database-migration
+        app.kubernetes.io/component: migration
+        app.kubernetes.io/part-of: micros-02-two-services-over-http
+    spec:
+      restartPolicy: Never
+
+      containers:
+        - name: migration
+          image: micros-02/ef-migrations:1.0.0
+          imagePullPolicy: IfNotPresent
+
+          args:
+            - database
+            - update
+            - --project
+            - src/PricingService/PricingService.Infrastructure/PricingService.Infrastructure.csproj
+            - --startup-project
+            - src/PricingService/PricingService.Api/PricingService.Api.csproj
+            - --context
+            - PricingDbContext
+            - --configuration
+            - Release
+            - --no-build
+
+          env:
+            - name: ASPNETCORE_ENVIRONMENT
+              value: Development
+
+            - name: PRICING_DATABASE_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: pricing-database-secret
+                  key: postgres-database
+
+            - name: PRICING_DATABASE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: pricing-database-secret
+                  key: postgres-username
+
+            - name: PRICING_DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: pricing-database-secret
+                  key: postgres-password
+
+            - name: ConnectionStrings__PricingDatabase
+              value: >-
+                Host=pricing-service-db;
+                Port=5432;
+                Database=$(PRICING_DATABASE_NAME);
+                Username=$(PRICING_DATABASE_USERNAME);
+                Password=$(PRICING_DATABASE_PASSWORD)
