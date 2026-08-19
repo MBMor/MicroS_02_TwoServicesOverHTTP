@@ -1,0 +1,46 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: catalog-api-network
+  namespace: micros-02-qa
+  labels:
+    app.kubernetes.io/name: catalog-api-network
+    app.kubernetes.io/component: network-policy
+    app.kubernetes.io/part-of: micros-02-two-services-over-http
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: catalog-service
+      app.kubernetes.io/component: api
+
+  policyTypes:
+    - Ingress
+    - Egress
+
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kong
+      ports:
+        - protocol: TCP
+          port: 8080
+
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: catalog-service-db
+              app.kubernetes.io/component: database
+      ports:
+        - protocol: TCP
+          port: 5432
+
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: pricing-service
+              app.kubernetes.io/component: api
+      ports:
+        - protocol: TCP
+          port: 8080

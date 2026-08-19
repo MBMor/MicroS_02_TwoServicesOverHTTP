@@ -1,0 +1,14 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: micros-02-qa
+  labels:
+    app.kubernetes.io/name: default-deny-all
+    app.kubernetes.io/component: network-policy
+    app.kubernetes.io/part-of: micros-02-two-services-over-http
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
