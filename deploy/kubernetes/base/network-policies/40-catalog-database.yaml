@@ -1,0 +1,30 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: catalog-database-ingress
+  namespace: micros-02-qa
+  labels:
+    app.kubernetes.io/name: catalog-database-ingress
+    app.kubernetes.io/component: network-policy
+    app.kubernetes.io/part-of: micros-02-two-services-over-http
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: catalog-service-db
+      app.kubernetes.io/component: database
+
+  policyTypes:
+    - Ingress
+
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - catalog-service
+                  - catalog-database-migration
+      ports:
+        - protocol: TCP
+          port: 5432

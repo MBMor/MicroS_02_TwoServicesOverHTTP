@@ -9,7 +9,6 @@ metadata:
     app.kubernetes.io/part-of: micros-02-two-services-over-http
 spec:
   backoffLimit: 1
-
   template:
     metadata:
       labels:
@@ -23,7 +22,6 @@ spec:
         - name: migration
           image: micros-02/ef-migrations:1.0.0
           imagePullPolicy: IfNotPresent
-
           args:
             - database
             - update
@@ -36,7 +34,6 @@ spec:
             - --configuration
             - Release
             - --no-build
-
           env:
             - name: ASPNETCORE_ENVIRONMENT
               value: Development
@@ -52,7 +49,6 @@ spec:
                 secretKeyRef:
                   name: pricing-database-secret
                   key: postgres-username
-
             - name: PRICING_DATABASE_PASSWORD
               valueFrom:
                 secretKeyRef:
@@ -66,3 +62,11 @@ spec:
                 Database=$(PRICING_DATABASE_NAME);
                 Username=$(PRICING_DATABASE_USERNAME);
                 Password=$(PRICING_DATABASE_PASSWORD)
+
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi

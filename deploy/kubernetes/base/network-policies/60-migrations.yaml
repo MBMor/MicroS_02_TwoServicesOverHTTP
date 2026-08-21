@@ -1,0 +1,56 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: catalog-migration-egress
+  namespace: micros-02-qa
+  labels:
+    app.kubernetes.io/name: catalog-migration-egress
+    app.kubernetes.io/component: network-policy
+    app.kubernetes.io/part-of: micros-02-two-services-over-http
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: catalog-database-migration
+      app.kubernetes.io/component: migration
+
+  policyTypes:
+    - Egress
+
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: catalog-service-db
+              app.kubernetes.io/component: database
+      ports:
+        - protocol: TCP
+          port: 5432
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: pricing-migration-egress
+  namespace: micros-02-qa
+  labels:
+    app.kubernetes.io/name: pricing-migration-egress
+    app.kubernetes.io/component: network-policy
+    app.kubernetes.io/part-of: micros-02-two-services-over-http
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: pricing-database-migration
+      app.kubernetes.io/component: migration
+
+  policyTypes:
+    - Egress
+
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: pricing-service-db
+              app.kubernetes.io/component: database
+      ports:
+        - protocol: TCP
+          port: 5432
