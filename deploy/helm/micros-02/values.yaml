@@ -24,6 +24,24 @@ catalog:
   database:
     secretName: catalog-database-secret
 
+    image:
+      repository: postgres
+      tag: "18"
+
+    service:
+      port: 5432
+
+    persistence:
+      size: 1Gi
+
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: "1"
+        memory: 1Gi
+
   resources:
     requests:
       cpu: 100m
@@ -49,6 +67,39 @@ pricing:
 
   database:
     secretName: pricing-database-secret
+
+    image:
+      repository: postgres
+      tag: "18"
+
+    service:
+      port: 5432
+
+    persistence:
+      size: 1Gi
+
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: "1"
+        memory: 1Gi
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+migrations:
+  enabled: true
+
+  image:
+    repository: micros-02/ef-migrations
+    tag: "1.0.0"
 
   resources:
     requests:

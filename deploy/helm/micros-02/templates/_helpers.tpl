@@ -26,6 +26,14 @@ Catalog resource names.
 {{ printf "%s-catalog-service-db" .Release.Name | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
+{{- define "micros-02.catalogDbHeadlessName" -}}
+{{ printf "%s-catalog-service-db-headless" .Release.Name | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
+{{- define "micros-02.catalogMigrationName" -}}
+{{ printf "%s-catalog-database-migration" .Release.Name | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
 {{/*
 Pricing resource names.
 */}}
@@ -35,4 +43,12 @@ Pricing resource names.
 
 {{- define "micros-02.pricingDbName" -}}
 {{ printf "%s-pricing-service-db" .Release.Name | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
+{{- define "micros-02.pricingDbHeadlessName" -}}
+{{ printf "%s-pricing-service-db-headless" .Release.Name | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
+{{- define "micros-02.pricingMigrationName" -}}
+{{ printf "%s-pricing-database-migration" .Release.Name | trunc 63 | trimSuffix "-" }}
 {{- end }}

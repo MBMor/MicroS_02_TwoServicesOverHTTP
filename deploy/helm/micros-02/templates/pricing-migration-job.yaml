@@ -1,0 +1,83 @@
+{{- if .Values.migrations.enabled }}
+apiVersion: batch/v1
+kind: Job
+
+metadata:
+  name: {{ include "micros-02.pricingMigrationName" . }}
+
+  labels:
+    {{- include "micros-02.labels" . | nindent 4 }}
+    app.kubernetes.io/name: pricing-database-migration
+    app.kubernetes.io/component: migration
+
+  annotations:
+    "helm.sh/hook": post-install,pre-upgrade
+    "helm.sh/hook-weight": "-20"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+
+spec:
+  backoffLimit: 1
+
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: pricing-database-migration
+        app.kubernetes.io/component: migration
+        app.kubernetes.io/part-of: micros-02-two-services-over-http
+        app.kubernetes.io/instance: {{ .Release.Name }}
+
+    spec:
+      restartPolicy: Never
+
+      containers:
+        - name: migration
+
+          image: "{{ .Values.migrations.image.repository }}:{{ .Values.migrations.image.tag }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+
+          args:
+            - database
+            - update
+            - --project
+            - src/PricingService/PricingService.Infrastructure/PricingService.Infrastructure.csproj
+            - --startup-project
+            - src/PricingService/PricingService.Api/PricingService.Api.csproj
+            - --context
+            - PricingDbContext
+            - --configuration
+            - Release
+            - --no-build
+
+          env:
+            - name: ASPNETCORE_ENVIRONMENT
+              value: {{ .Values.pricing.config.environment | quote }}
+
+            - name: PRICING_DATABASE_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.pricing.database.secretName }}
+                  key: postgres-database
+
+            - name: PRICING_DATABASE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.pricing.database.secretName }}
+                  key: postgres-username
+
+            - name: PRICING_DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.pricing.database.secretName }}
+                  key: postgres-password
+
+            - name: ConnectionStrings__PricingDatabase
+              value: >-
+                Host={{ include "micros-02.pricingDbName" . }};
+                Port={{ .Values.pricing.database.service.port }};
+                Database=$(PRICING_DATABASE_NAME);
+                Username=$(PRICING_DATABASE_USERNAME);
+                Password=$(PRICING_DATABASE_PASSWORD)
+
+          resources:
+            {{- toYaml .Values.migrations.resources | nindent 12 }}
+{{- end }}
