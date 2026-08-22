@@ -7,6 +7,7 @@ NAMESPACE="${NAMESPACE:-micros-02-qa}"
 
 SERVICE_NAME="pricing-service"
 DEPLOYMENT_NAME="pricing-service"
+CATALOG_DEPLOYMENT_NAME="catalog-service"
 
 CATALOG_LOCAL_PORT="${CATALOG_LOCAL_PORT:-5101}"
 CATALOG_URL="http://127.0.0.1:${CATALOG_LOCAL_PORT}"
@@ -55,6 +56,61 @@ restore_service() {
   SERVICE_RESTORE_REQUIRED="false"
 }
 
+stop_catalog_port_forward() {
+  if [[ -z "${PORT_FORWARD_PID}" ]]; then
+    return
+  fi
+
+  if kill -0 "${PORT_FORWARD_PID}" >/dev/null 2>&1; then
+    kill "${PORT_FORWARD_PID}" >/dev/null 2>&1 || true
+  fi
+
+  wait "${PORT_FORWARD_PID}" >/dev/null 2>&1 || true
+
+  PORT_FORWARD_PID=""
+}
+
+start_catalog_port_forward() {
+  : > "${PORT_FORWARD_LOG}"
+
+  kubectl port-forward \
+    --namespace "${NAMESPACE}" \
+    service/catalog-service \
+    "${CATALOG_LOCAL_PORT}:80" \
+    >"${PORT_FORWARD_LOG}" 2>&1 &
+
+  PORT_FORWARD_PID="$!"
+}
+
+wait_for_catalog() {
+  for ((attempt = 1; attempt <= 30; attempt++)); do
+    if [[ -n "${PORT_FORWARD_PID}" ]] &&
+       ! kill -0 "${PORT_FORWARD_PID}" >/dev/null 2>&1; then
+
+      echo "Catalog port-forward terminated unexpectedly." >&2
+      cat "${PORT_FORWARD_LOG}" >&2
+      return 1
+    fi
+
+    if curl \
+      --silent \
+      --fail \
+      --max-time 2 \
+      "${CATALOG_URL}/health/live" \
+      >/dev/null 2>&1; then
+
+      return 0
+    fi
+
+    sleep 1
+  done
+
+  echo "Catalog Service did not become reachable." >&2
+  cat "${PORT_FORWARD_LOG}" >&2
+
+  return 1
+}
+
 cleanup() {
   local original_exit_code=$?
 
@@ -74,13 +130,11 @@ cleanup() {
       || true
   fi
 
-  if [[ -n "${PORT_FORWARD_PID}" ]]; then
-    kill "${PORT_FORWARD_PID}" >/dev/null 2>&1 || true
-    wait "${PORT_FORWARD_PID}" >/dev/null 2>&1 || true
-  fi
+  stop_catalog_port_forward
 
   if [[ -n "${TEMP_DIRECTORY}" &&
         -d "${TEMP_DIRECTORY}" ]]; then
+
     rm -rf "${TEMP_DIRECTORY}"
   fi
 
@@ -135,7 +189,7 @@ kubectl wait \
 
 kubectl wait \
   --for=condition=Available \
-  deployment/catalog-service \
+  deployment/"${CATALOG_DEPLOYMENT_NAME}" \
   --namespace "${NAMESPACE}" \
   --timeout=60s
 
@@ -144,33 +198,11 @@ echo "PASS: Catalog and Pricing Deployments are available."
 echo
 echo "2. Starting Catalog port-forward..."
 
-kubectl port-forward \
-  --namespace "${NAMESPACE}" \
-  service/catalog-service \
-  "${CATALOG_LOCAL_PORT}:80" \
-  >"${PORT_FORWARD_LOG}" 2>&1 &
+start_catalog_port_forward
 
-PORT_FORWARD_PID="$!"
-
-for ((attempt = 1; attempt <= 30; attempt++)); do
-  if curl \
-    --silent \
-    --fail \
-    --max-time 2 \
-    "${CATALOG_URL}/health/live" \
-    >/dev/null 2>&1; then
-
-    break
-  fi
-
-  if ((attempt == 30)); then
-    echo "Catalog Service did not become reachable." >&2
-    cat "${PORT_FORWARD_LOG}" >&2
-    exit 1
-  fi
-
-  sleep 1
-done
+if ! wait_for_catalog; then
+  exit 1
+fi
 
 echo "PASS: Catalog Service is reachable."
 
@@ -273,7 +305,45 @@ fi
 echo "PASS: Pricing Service has no endpoints."
 
 echo
-echo "7. Verifying Catalog fallback..."
+echo "7. Forcing a fresh Catalog -> Pricing connection..."
+
+# Pricing Pods remain healthy during this failure scenario.
+# Existing keep-alive connections from Catalog to Pricing can therefore
+# temporarily survive the Service selector change even after the Service
+# has no endpoints.
+#
+# Restart Catalog to discard its existing HTTP connection pool and force
+# the next Pricing request to establish a new connection through the
+# now-broken Pricing Service.
+
+stop_catalog_port_forward
+
+kubectl rollout restart \
+  deployment/"${CATALOG_DEPLOYMENT_NAME}" \
+  --namespace "${NAMESPACE}"
+
+kubectl rollout status \
+  deployment/"${CATALOG_DEPLOYMENT_NAME}" \
+  --namespace "${NAMESPACE}" \
+  --timeout=120s
+
+kubectl wait \
+  --for=condition=Ready \
+  pod \
+  --selector='app.kubernetes.io/name=catalog-service,app.kubernetes.io/component=api' \
+  --namespace "${NAMESPACE}" \
+  --timeout=120s
+
+start_catalog_port_forward
+
+if ! wait_for_catalog; then
+  exit 1
+fi
+
+echo "PASS: Catalog restarted with a fresh connection pool."
+
+echo
+echo "8. Verifying Catalog fallback..."
 
 OUTAGE_STATUS="$(
   curl \
@@ -281,6 +351,7 @@ OUTAGE_STATUS="$(
     --show-error \
     --output "${PRODUCT_RESPONSE}" \
     --write-out '%{http_code}' \
+    --max-time 10 \
     "${CATALOG_URL}/api/v1/catalog-products/${TEST_PRODUCT_ID}"
 )"
 
@@ -302,12 +373,12 @@ fi
 echo "PASS: Catalog returned priceStatus 'Unavailable'."
 
 echo
-echo "8. Restoring Pricing Service..."
+echo "9. Restoring Pricing Service..."
 
 restore_service
 
 echo
-echo "9. Waiting for Pricing endpoint recovery..."
+echo "10. Waiting for Pricing endpoint recovery..."
 
 ENDPOINTS=""
 
@@ -335,29 +406,43 @@ fi
 echo "PASS: Pricing Service endpoint recovered."
 
 echo
-echo "10. Verifying Catalog after recovery..."
+echo "11. Verifying Catalog after recovery..."
 
-RECOVERY_STATUS="$(
-  curl \
-    --silent \
-    --show-error \
-    --output "${PRODUCT_RESPONSE}" \
-    --write-out '%{http_code}' \
-    "${CATALOG_URL}/api/v1/catalog-products/${TEST_PRODUCT_ID}"
-)"
+RECOVERY_SUCCEEDED="false"
 
-if [[ "${RECOVERY_STATUS}" != "200" ]]; then
-  echo "Catalog lookup failed after Service recovery." >&2
-  cat "${PRODUCT_RESPONSE}" >&2
-  exit 1
-fi
+for ((attempt = 1; attempt <= 30; attempt++)); do
+  RECOVERY_STATUS="$(
+    curl \
+      --silent \
+      --show-error \
+      --output "${PRODUCT_RESPONSE}" \
+      --write-out '%{http_code}' \
+      --max-time 5 \
+      "${CATALOG_URL}/api/v1/catalog-products/${TEST_PRODUCT_ID}" \
+      2>/dev/null || true
+  )"
 
-if ! grep -Eq \
-  '"priceStatus"[[:space:]]*:[[:space:]]*"NotSet"' \
-  "${PRODUCT_RESPONSE}"; then
+  if [[ "${RECOVERY_STATUS}" == "200" ]] &&
+     grep -Eq \
+       '"priceStatus"[[:space:]]*:[[:space:]]*"NotSet"' \
+       "${PRODUCT_RESPONSE}"; then
 
-  echo "Expected priceStatus 'NotSet' after recovery." >&2
-  cat "${PRODUCT_RESPONSE}" >&2
+    RECOVERY_SUCCEEDED="true"
+    break
+  fi
+
+  sleep 1
+done
+
+if [[ "${RECOVERY_SUCCEEDED}" != "true" ]]; then
+  echo "Catalog did not recover expected Pricing behavior." >&2
+  echo "Expected HTTP 200 with priceStatus 'NotSet'." >&2
+  echo "Last HTTP status: ${RECOVERY_STATUS:-unknown}" >&2
+
+  if [[ -f "${PRODUCT_RESPONSE}" ]]; then
+    cat "${PRODUCT_RESPONSE}" >&2
+  fi
+
   exit 1
 fi
 

@@ -6,7 +6,9 @@ PROFILE_NAME="${PROFILE_NAME:-micros-02-qa}"
 NAMESPACE="${NAMESPACE:-micros-02-qa}"
 
 CATALOG_LOCAL_PORT="${CATALOG_LOCAL_PORT:-5101}"
+
 WAIT_TIMEOUT="${WAIT_TIMEOUT:-90}"
+OUTAGE_TIMEOUT="${OUTAGE_TIMEOUT:-60}"
 
 CATALOG_URL="http://127.0.0.1:${CATALOG_LOCAL_PORT}"
 
@@ -43,6 +45,14 @@ cleanup() {
       --replicas="${ORIGINAL_PRICING_REPLICAS}" \
       --namespace "${NAMESPACE}" \
       >/dev/null 2>&1 || true
+
+    if [[ "${ORIGINAL_PRICING_REPLICAS}" != "0" ]]; then
+      kubectl rollout status \
+        deployment/pricing-service \
+        --namespace "${NAMESPACE}" \
+        --timeout="${WAIT_TIMEOUT}s" \
+        >/dev/null 2>&1 || true
+    fi
   fi
 
   if [[ -n "${TEST_PRODUCT_ID}" ]] &&
@@ -66,6 +76,7 @@ cleanup() {
 
   if [[ -n "${TEMP_DIRECTORY}" &&
         -d "${TEMP_DIRECTORY}" ]]; then
+
     rm -rf "${TEMP_DIRECTORY}"
   fi
 
@@ -95,6 +106,7 @@ echo "============================================================"
 if ! minikube status \
   --profile "${PROFILE_NAME}" \
   >/dev/null 2>&1; then
+
   echo "Minikube profile '${PROFILE_NAME}' is not running." >&2
   exit 1
 fi
@@ -127,6 +139,11 @@ ORIGINAL_PRICING_REPLICAS="$(
 
 echo "Original Pricing replicas: ${ORIGINAL_PRICING_REPLICAS}"
 
+if ! [[ "${ORIGINAL_PRICING_REPLICAS}" =~ ^[0-9]+$ ]]; then
+  echo "Could not determine original Pricing replica count." >&2
+  exit 1
+fi
+
 if [[ "${ORIGINAL_PRICING_REPLICAS}" == "0" ]]; then
   echo "Pricing Service must have at least one replica before the test." >&2
   exit 1
@@ -150,6 +167,7 @@ for ((attempt = 1; attempt <= 30; attempt++)); do
     --max-time 2 \
     "${CATALOG_URL}/health/live" \
     >/dev/null 2>&1; then
+
     break
   fi
 
@@ -241,23 +259,119 @@ kubectl scale deployment \
   --replicas=0 \
   --namespace "${NAMESPACE}"
 
+echo
+echo "Waiting for Pricing Deployment to have zero available replicas..."
+
+PRICING_UNAVAILABLE="false"
+
 for ((attempt = 1; attempt <= WAIT_TIMEOUT; attempt++)); do
   AVAILABLE_REPLICAS="$(
     kubectl get deployment \
       pricing-service \
       --namespace "${NAMESPACE}" \
-      -o jsonpath='{.status.availableReplicas}' 2>/dev/null || true
+      -o jsonpath='{.status.availableReplicas}' \
+      2>/dev/null || true
   )"
 
-  if [[ -z "${AVAILABLE_REPLICAS}" ||
-        "${AVAILABLE_REPLICAS}" == "0" ]]; then
+  AVAILABLE_REPLICAS="${AVAILABLE_REPLICAS:-0}"
+
+  if [[ "${AVAILABLE_REPLICAS}" == "0" ]]; then
+    PRICING_UNAVAILABLE="true"
     break
   fi
 
+  echo "Available Pricing replicas: ${AVAILABLE_REPLICAS}"
   sleep 1
 done
 
+if [[ "${PRICING_UNAVAILABLE}" != "true" ]]; then
+  echo "Pricing Service still has available replicas after ${WAIT_TIMEOUT} seconds." >&2
+
+  kubectl get deployment \
+    pricing-service \
+    --namespace "${NAMESPACE}" \
+    >&2
+
+  exit 1
+fi
+
 echo "PASS: Pricing Service has no available replicas."
+
+echo
+echo "Waiting for Pricing Pods to terminate completely..."
+
+PRICING_PODS_TERMINATED="false"
+
+for ((attempt = 1; attempt <= OUTAGE_TIMEOUT; attempt++)); do
+  PRICING_POD_COUNT="$(
+    kubectl get pods \
+      --namespace "${NAMESPACE}" \
+      --selector='app.kubernetes.io/name=pricing-service,app.kubernetes.io/component=api' \
+      -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' \
+      2>/dev/null |
+    grep -c . || true
+  )"
+
+  if [[ "${PRICING_POD_COUNT}" == "0" ]]; then
+    PRICING_PODS_TERMINATED="true"
+    break
+  fi
+
+  echo "Pricing Pods still present: ${PRICING_POD_COUNT}"
+  sleep 1
+done
+
+if [[ "${PRICING_PODS_TERMINATED}" != "true" ]]; then
+  echo "Pricing Pods did not terminate within ${OUTAGE_TIMEOUT} seconds." >&2
+
+  kubectl get pods \
+    --namespace "${NAMESPACE}" \
+    --selector='app.kubernetes.io/name=pricing-service,app.kubernetes.io/component=api' \
+    -o wide \
+    >&2
+
+  exit 1
+fi
+
+echo "PASS: Pricing Pods are fully terminated."
+
+echo
+echo "Waiting for Pricing Service endpoints to disappear..."
+
+PRICING_ENDPOINTS_CLEARED="false"
+
+for ((attempt = 1; attempt <= OUTAGE_TIMEOUT; attempt++)); do
+  PRICING_ENDPOINT_COUNT="$(
+    kubectl get endpointslices \
+      --namespace "${NAMESPACE}" \
+      --selector='kubernetes.io/service-name=pricing-service' \
+      -o jsonpath='{range .items[*].endpoints[*]}{.addresses[0]}{"\n"}{end}' \
+      2>/dev/null |
+    grep -c . || true
+  )"
+
+  if [[ "${PRICING_ENDPOINT_COUNT}" == "0" ]]; then
+    PRICING_ENDPOINTS_CLEARED="true"
+    break
+  fi
+
+  echo "Pricing endpoints still present: ${PRICING_ENDPOINT_COUNT}"
+  sleep 1
+done
+
+if [[ "${PRICING_ENDPOINTS_CLEARED}" != "true" ]]; then
+  echo "Pricing Service endpoints did not disappear within ${OUTAGE_TIMEOUT} seconds." >&2
+
+  kubectl get endpointslices \
+    --namespace "${NAMESPACE}" \
+    --selector='kubernetes.io/service-name=pricing-service' \
+    -o yaml \
+    >&2
+
+  exit 1
+fi
+
+echo "PASS: Pricing Service has no endpoints."
 
 echo
 echo "6. Verifying Catalog readiness during Pricing outage..."
@@ -268,6 +382,7 @@ CATALOG_HEALTH_STATUS="$(
     --show-error \
     --output "${HEALTH_RESPONSE}" \
     --write-out '%{http_code}' \
+    --max-time 10 \
     "${CATALOG_URL}/health/ready"
 )"
 
@@ -282,29 +397,69 @@ echo "PASS: Catalog remains Ready."
 echo
 echo "7. Verifying Catalog fallback..."
 
-OUTAGE_STATUS="$(
-  curl \
-    --silent \
-    --show-error \
-    --output "${PRODUCT_RESPONSE}" \
-    --write-out '%{http_code}' \
-    "${CATALOG_URL}/api/v1/catalog-products/${TEST_PRODUCT_ID}"
-)"
+FALLBACK_OBSERVED="false"
 
-if [[ "${OUTAGE_STATUS}" != "200" ]]; then
-  echo "Catalog request failed during Pricing outage." >&2
-  echo "Expected: 200" >&2
-  echo "Actual:   ${OUTAGE_STATUS}" >&2
-  cat "${PRODUCT_RESPONSE}" >&2
-  exit 1
-fi
+for ((attempt = 1; attempt <= OUTAGE_TIMEOUT; attempt++)); do
+  OUTAGE_STATUS="$(
+    curl \
+      --silent \
+      --show-error \
+      --output "${PRODUCT_RESPONSE}" \
+      --write-out '%{http_code}' \
+      --max-time 10 \
+      "${CATALOG_URL}/api/v1/catalog-products/${TEST_PRODUCT_ID}" \
+      2>/dev/null || true
+  )"
 
-if ! grep -Eq \
-  '"priceStatus"[[:space:]]*:[[:space:]]*"Unavailable"' \
-  "${PRODUCT_RESPONSE}"; then
+  if [[ "${OUTAGE_STATUS}" != "200" ]]; then
+    echo "Attempt ${attempt}: Catalog HTTP ${OUTAGE_STATUS:-unavailable}"
 
+    sleep 1
+    continue
+  fi
+
+  if grep -Eq \
+    '"priceStatus"[[:space:]]*:[[:space:]]*"Unavailable"' \
+    "${PRODUCT_RESPONSE}"; then
+
+    FALLBACK_OBSERVED="true"
+    break
+  fi
+
+  CURRENT_PRICE_STATUS="$(
+    grep -oE \
+      '"priceStatus"[[:space:]]*:[[:space:]]*"[^"]+"' \
+      "${PRODUCT_RESPONSE}" |
+    head -n 1 || true
+  )"
+
+  echo "Attempt ${attempt}: ${CURRENT_PRICE_STATUS:-priceStatus not found}"
+
+  sleep 1
+done
+
+if [[ "${FALLBACK_OBSERVED}" != "true" ]]; then
   echo "Expected priceStatus 'Unavailable' during Pricing outage." >&2
+  echo >&2
+  echo "Last Catalog response:" >&2
   cat "${PRODUCT_RESPONSE}" >&2
+  echo >&2
+
+  echo "Pricing Pods:" >&2
+  kubectl get pods \
+    --namespace "${NAMESPACE}" \
+    --selector='app.kubernetes.io/name=pricing-service,app.kubernetes.io/component=api' \
+    -o wide \
+    >&2 || true
+
+  echo >&2
+  echo "Pricing EndpointSlices:" >&2
+  kubectl get endpointslices \
+    --namespace "${NAMESPACE}" \
+    --selector='kubernetes.io/service-name=pricing-service' \
+    -o yaml \
+    >&2 || true
+
   exit 1
 fi
 
@@ -334,31 +489,71 @@ echo "PASS: Pricing Service recovered."
 echo
 echo "9. Verifying Catalog after recovery..."
 
-RECOVERY_STATUS="$(
-  curl \
-    --silent \
-    --show-error \
-    --output "${PRODUCT_RESPONSE}" \
-    --write-out '%{http_code}' \
-    "${CATALOG_URL}/api/v1/catalog-products/${TEST_PRODUCT_ID}"
-)"
+RECOVERY_OBSERVED="false"
 
-if [[ "${RECOVERY_STATUS}" != "200" ]]; then
-  echo "Catalog lookup failed after Pricing recovery." >&2
-  cat "${PRODUCT_RESPONSE}" >&2
-  exit 1
-fi
+for ((attempt = 1; attempt <= WAIT_TIMEOUT; attempt++)); do
+  RECOVERY_STATUS="$(
+    curl \
+      --silent \
+      --show-error \
+      --output "${PRODUCT_RESPONSE}" \
+      --write-out '%{http_code}' \
+      --max-time 10 \
+      "${CATALOG_URL}/api/v1/catalog-products/${TEST_PRODUCT_ID}" \
+      2>/dev/null || true
+  )"
 
-if ! grep -Eq \
-  '"priceStatus"[[:space:]]*:[[:space:]]*"NotSet"' \
-  "${PRODUCT_RESPONSE}"; then
+  if [[ "${RECOVERY_STATUS}" != "200" ]]; then
+    echo "Attempt ${attempt}: Catalog HTTP ${RECOVERY_STATUS:-unavailable}"
 
-  echo "Expected priceStatus 'NotSet' after recovery." >&2
+    sleep 1
+    continue
+  fi
+
+  if grep -Eq \
+    '"priceStatus"[[:space:]]*:[[:space:]]*"NotSet"' \
+    "${PRODUCT_RESPONSE}"; then
+
+    RECOVERY_OBSERVED="true"
+    break
+  fi
+
+  CURRENT_PRICE_STATUS="$(
+    grep -oE \
+      '"priceStatus"[[:space:]]*:[[:space:]]*"[^"]+"' \
+      "${PRODUCT_RESPONSE}" |
+    head -n 1 || true
+  )"
+
+  echo "Attempt ${attempt}: ${CURRENT_PRICE_STATUS:-priceStatus not found}"
+
+  sleep 1
+done
+
+if [[ "${RECOVERY_OBSERVED}" != "true" ]]; then
+  echo "Expected priceStatus 'NotSet' after Pricing recovery." >&2
+  echo >&2
+  echo "Last Catalog response:" >&2
   cat "${PRODUCT_RESPONSE}" >&2
   exit 1
 fi
 
 echo "PASS: Catalog returned to priceStatus 'NotSet'."
+
+echo
+echo "10. Verifying final Pricing state..."
+
+kubectl get deployment \
+  pricing-service \
+  --namespace "${NAMESPACE}"
+
+kubectl get pods \
+  --namespace "${NAMESPACE}" \
+  --selector='app.kubernetes.io/name=pricing-service,app.kubernetes.io/component=api'
+
+kubectl get endpointslices \
+  --namespace "${NAMESPACE}" \
+  --selector='kubernetes.io/service-name=pricing-service'
 
 echo
 echo "============================================================"
