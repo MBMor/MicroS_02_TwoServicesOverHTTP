@@ -1,0 +1,59 @@
+global:
+  imagePullPolicy: IfNotPresent
+
+catalog:
+  replicaCount: 1
+
+  image:
+    repository: micros-02/catalog-service
+    tag: "1.0.0"
+
+  service:
+    port: 80
+    targetPort: 8080
+
+  config:
+    environment: Development
+    httpPorts: "8080"
+
+    pricingService:
+      timeoutSeconds: "3"
+      retryCount: "2"
+      retryDelayMilliseconds: "200"
+
+  database:
+    secretName: catalog-database-secret
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+pricing:
+  replicaCount: 1
+
+  image:
+    repository: micros-02/pricing-service
+    tag: "1.0.0"
+
+  service:
+    port: 80
+    targetPort: 8080
+
+  config:
+    environment: Development
+    httpPorts: "8080"
+
+  database:
+    secretName: pricing-database-secret
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi

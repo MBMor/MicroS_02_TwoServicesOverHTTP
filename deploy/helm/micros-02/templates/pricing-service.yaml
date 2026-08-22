@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: {{ include "micros-02.pricingName" . }}
+  labels:
+    {{- include "micros-02.labels" . | nindent 4 }}
+    app.kubernetes.io/name: pricing-service
+    app.kubernetes.io/component: api
+
+spec:
+  type: ClusterIP
+
+  selector:
+    app.kubernetes.io/name: pricing-service
+    app.kubernetes.io/component: api
+    app.kubernetes.io/instance: {{ .Release.Name }}
+
+  ports:
+    - name: http
+      protocol: TCP
+      port: {{ .Values.pricing.service.port }}
+      targetPort: http

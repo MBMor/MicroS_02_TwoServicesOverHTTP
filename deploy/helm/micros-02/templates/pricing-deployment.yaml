@@ -1,0 +1,99 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: {{ include "micros-02.pricingName" . }}
+  labels:
+    {{- include "micros-02.labels" . | nindent 4 }}
+    app.kubernetes.io/name: pricing-service
+    app.kubernetes.io/component: api
+
+spec:
+  replicas: {{ .Values.pricing.replicaCount }}
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: pricing-service
+      app.kubernetes.io/component: api
+      app.kubernetes.io/instance: {{ .Release.Name }}
+
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: pricing-service
+        app.kubernetes.io/component: api
+        app.kubernetes.io/part-of: micros-02-two-services-over-http
+        app.kubernetes.io/instance: {{ .Release.Name }}
+
+    spec:
+      containers:
+        - name: pricing-service
+
+          image: "{{ .Values.pricing.image.repository }}:{{ .Values.pricing.image.tag }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+
+          ports:
+            - name: http
+              containerPort: {{ .Values.pricing.service.targetPort }}
+              protocol: TCP
+
+          envFrom:
+            - configMapRef:
+                name: {{ include "micros-02.pricingName" . }}-config
+
+          env:
+            - name: PRICING_DATABASE_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.pricing.database.secretName }}
+                  key: postgres-database
+
+            - name: PRICING_DATABASE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.pricing.database.secretName }}
+                  key: postgres-username
+
+            - name: PRICING_DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.pricing.database.secretName }}
+                  key: postgres-password
+
+            - name: ConnectionStrings__PricingDatabase
+              value: >-
+                Host={{ include "micros-02.pricingDbName" . }};
+                Port=5432;
+                Database=$(PRICING_DATABASE_NAME);
+                Username=$(PRICING_DATABASE_USERNAME);
+                Password=$(PRICING_DATABASE_PASSWORD)
+
+          startupProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            periodSeconds: 5
+            failureThreshold: 30
+
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+            periodSeconds: 5
+            failureThreshold: 3
+
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            periodSeconds: 10
+            failureThreshold: 3
+
+          resources:
+            {{- toYaml .Values.pricing.resources | nindent 12 }}
