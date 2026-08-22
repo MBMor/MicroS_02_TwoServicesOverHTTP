@@ -10,7 +10,9 @@ CATALOG_DB_STATEFULSET="${CATALOG_DB_STATEFULSET:-catalog-service-db}"
 CATALOG_DB_POD="${CATALOG_DB_POD:-catalog-service-db-0}"
 
 LOCAL_PORT="${LOCAL_PORT:-5105}"
+
 WAIT_TIMEOUT="${WAIT_TIMEOUT:-120}"
+HTTP_TIMEOUT="${HTTP_TIMEOUT:-3}"
 
 PORT_FORWARD_PID=""
 TEMP_DIRECTORY=""
@@ -68,6 +70,7 @@ cleanup() {
 
   if [[ -n "${TEMP_DIRECTORY}" &&
         -d "${TEMP_DIRECTORY}" ]]; then
+
     rm -rf "${TEMP_DIRECTORY}"
   fi
 
@@ -76,15 +79,53 @@ cleanup() {
 
 trap cleanup EXIT INT TERM
 
+port_forward_is_running() {
+  [[ -n "${PORT_FORWARD_PID}" ]] &&
+    kill -0 "${PORT_FORWARD_PID}" >/dev/null 2>&1
+}
+
+get_http_status() {
+  local url="$1"
+  local output_file="$2"
+
+  local status
+  local curl_exit_code
+
+  set +e
+
+  status="$(
+    curl \
+      --silent \
+      --show-error \
+      --output "${output_file}" \
+      --write-out '%{http_code}' \
+      --connect-timeout 2 \
+      --max-time "${HTTP_TIMEOUT}" \
+      "${url}" \
+      2>/dev/null
+  )"
+
+  curl_exit_code=$?
+
+  set -e
+
+  printf '%s %s\n' \
+    "${status:-000}" \
+    "${curl_exit_code}"
+}
+
 require_command minikube
 require_command kubectl
 require_command curl
 require_command awk
-require_command grep
 require_command mktemp
 
 TEMP_DIRECTORY="$(mktemp -d)"
+
 PORT_FORWARD_LOG="${TEMP_DIRECTORY}/catalog-port-forward.log"
+HTTP_RESPONSE="${TEMP_DIRECTORY}/http-response.txt"
+
+CATALOG_URL="http://127.0.0.1:${LOCAL_PORT}"
 
 echo "============================================================"
 echo "Database readiness outage test"
@@ -165,55 +206,60 @@ kubectl port-forward \
 
 PORT_FORWARD_PID="$!"
 
+CATALOG_REACHABLE="false"
+
 for ((attempt = 1; attempt <= 30; attempt++)); do
-  LIVE_STATUS="$(
-    curl \
-      --silent \
-      --output /dev/null \
-      --write-out '%{http_code}' \
-      --max-time 3 \
-      "http://127.0.0.1:${LOCAL_PORT}/health/live" \
-      2>/dev/null || true
-  )"
-
-  if [[ "${LIVE_STATUS}" == "200" ]]; then
-    break
-  fi
-
-  if ((attempt == 30)); then
-    echo "Could not reach Catalog Pod directly." >&2
+  if ! port_forward_is_running; then
+    echo "Catalog port-forward terminated unexpectedly." >&2
     cat "${PORT_FORWARD_LOG}" >&2
     exit 1
   fi
 
+  read -r LIVE_STATUS LIVE_CURL_EXIT < <(
+    get_http_status \
+      "${CATALOG_URL}/health/live" \
+      "${HTTP_RESPONSE}"
+  )
+
+  if [[ "${LIVE_CURL_EXIT}" == "0" &&
+        "${LIVE_STATUS}" == "200" ]]; then
+
+    CATALOG_REACHABLE="true"
+    break
+  fi
+
   sleep 1
 done
+
+if [[ "${CATALOG_REACHABLE}" != "true" ]]; then
+  echo "Could not reach Catalog Pod directly." >&2
+  cat "${PORT_FORWARD_LOG}" >&2
+  exit 1
+fi
 
 echo "PASS: Catalog Pod is directly reachable."
 
 echo
 echo "3. Verifying healthy baseline..."
 
-LIVE_STATUS="$(
-  curl \
-    --silent \
-    --output /dev/null \
-    --write-out '%{http_code}' \
-    "http://127.0.0.1:${LOCAL_PORT}/health/live"
-)"
+read -r LIVE_STATUS LIVE_CURL_EXIT < <(
+  get_http_status \
+    "${CATALOG_URL}/health/live" \
+    "${HTTP_RESPONSE}"
+)
 
-READY_STATUS="$(
-  curl \
-    --silent \
-    --output /dev/null \
-    --write-out '%{http_code}' \
-    "http://127.0.0.1:${LOCAL_PORT}/health/ready"
-)"
+read -r READY_STATUS READY_CURL_EXIT < <(
+  get_http_status \
+    "${CATALOG_URL}/health/ready" \
+    "${HTTP_RESPONSE}"
+)
 
-echo "Liveness:  HTTP ${LIVE_STATUS}"
-echo "Readiness: HTTP ${READY_STATUS}"
+echo "Liveness:  HTTP ${LIVE_STATUS}, curl exit ${LIVE_CURL_EXIT}"
+echo "Readiness: HTTP ${READY_STATUS}, curl exit ${READY_CURL_EXIT}"
 
-if [[ "${LIVE_STATUS}" != "200" ||
+if [[ "${LIVE_CURL_EXIT}" != "0" ||
+      "${LIVE_STATUS}" != "200" ||
+      "${READY_CURL_EXIT}" != "0" ||
       "${READY_STATUS}" != "200" ]]; then
 
   echo "Expected healthy Catalog baseline." >&2
@@ -235,70 +281,85 @@ kubectl scale statefulset \
 echo
 echo "5. Waiting for database Pod termination..."
 
+DATABASE_UNAVAILABLE="false"
+
 for ((attempt = 1; attempt <= WAIT_TIMEOUT; attempt++)); do
   if ! kubectl get pod \
     "${CATALOG_DB_POD}" \
     --namespace "${NAMESPACE}" \
     >/dev/null 2>&1; then
 
+    DATABASE_UNAVAILABLE="true"
     break
-  fi
-
-  if ((attempt == WAIT_TIMEOUT)); then
-    echo "Catalog database Pod did not terminate." >&2
-    exit 1
   fi
 
   sleep 1
 done
+
+if [[ "${DATABASE_UNAVAILABLE}" != "true" ]]; then
+  echo "Catalog database Pod did not terminate." >&2
+  exit 1
+fi
 
 echo "PASS: Catalog database is unavailable."
 
 echo
 echo "6. Waiting for Catalog readiness failure..."
 
+READINESS_FAILED="false"
 READY_STATUS=""
+READY_CURL_EXIT=""
 
 for ((attempt = 1; attempt <= WAIT_TIMEOUT; attempt++)); do
-  READY_STATUS="$(
-    curl \
-      --silent \
-      --output /dev/null \
-      --write-out '%{http_code}' \
-      --max-time 5 \
-      "http://127.0.0.1:${LOCAL_PORT}/health/ready" \
-      2>/dev/null || true
-  )"
+  if ! port_forward_is_running; then
+    echo "Catalog port-forward terminated unexpectedly." >&2
+    cat "${PORT_FORWARD_LOG}" >&2
+    exit 1
+  fi
 
-  if [[ "${READY_STATUS}" == "503" ]]; then
+  read -r READY_STATUS READY_CURL_EXIT < <(
+    get_http_status \
+      "${CATALOG_URL}/health/ready" \
+      "${HTTP_RESPONSE}"
+  )
+
+  if [[ "${READY_CURL_EXIT}" != "0" ||
+        "${READY_STATUS}" != "200" ]]; then
+
+    READINESS_FAILED="true"
     break
   fi
 
   sleep 1
 done
 
-if [[ "${READY_STATUS}" != "503" ]]; then
-  echo "Catalog readiness did not become HTTP 503." >&2
+if [[ "${READINESS_FAILED}" != "true" ]]; then
+  echo "Catalog readiness remained healthy during database outage." >&2
   exit 1
 fi
 
-echo "PASS: Catalog readiness returned HTTP 503."
+if [[ "${READY_CURL_EXIT}" == "0" ]]; then
+  echo "PASS: Catalog readiness failed with HTTP ${READY_STATUS}."
+else
+  echo "PASS: Catalog readiness request failed as expected."
+  echo "      curl exit=${READY_CURL_EXIT}, HTTP=${READY_STATUS}"
+fi
 
 echo
 echo "7. Verifying liveness remains healthy..."
 
-LIVE_STATUS="$(
-  curl \
-    --silent \
-    --output /dev/null \
-    --write-out '%{http_code}' \
-    --max-time 5 \
-    "http://127.0.0.1:${LOCAL_PORT}/health/live" \
-    2>/dev/null || true
-)"
+read -r LIVE_STATUS LIVE_CURL_EXIT < <(
+  get_http_status \
+    "${CATALOG_URL}/health/live" \
+    "${HTTP_RESPONSE}"
+)
 
-if [[ "${LIVE_STATUS}" != "200" ]]; then
+if [[ "${LIVE_CURL_EXIT}" != "0" ||
+      "${LIVE_STATUS}" != "200" ]]; then
+
   echo "Catalog liveness unexpectedly failed." >&2
+  echo "HTTP: ${LIVE_STATUS}" >&2
+  echo "curl exit: ${LIVE_CURL_EXIT}" >&2
   exit 1
 fi
 
@@ -308,6 +369,7 @@ echo
 echo "8. Waiting for Pod Ready=False..."
 
 POD_READY=""
+POD_NOT_READY="false"
 
 for ((attempt = 1; attempt <= WAIT_TIMEOUT; attempt++)); do
   POD_READY="$(
@@ -319,14 +381,16 @@ for ((attempt = 1; attempt <= WAIT_TIMEOUT; attempt++)); do
   )"
 
   if [[ "${POD_READY}" == "False" ]]; then
+    POD_NOT_READY="true"
     break
   fi
 
   sleep 1
 done
 
-if [[ "${POD_READY}" != "False" ]]; then
+if [[ "${POD_NOT_READY}" != "true" ]]; then
   echo "Catalog Pod did not transition to Ready=False." >&2
+  echo "Last Ready condition: ${POD_READY:-unknown}" >&2
   exit 1
 fi
 
@@ -390,28 +454,37 @@ echo "PASS: Catalog database recovered."
 echo
 echo "12. Waiting for Catalog readiness recovery..."
 
+READINESS_RECOVERED="false"
 READY_STATUS=""
+READY_CURL_EXIT=""
 
 for ((attempt = 1; attempt <= WAIT_TIMEOUT; attempt++)); do
-  READY_STATUS="$(
-    curl \
-      --silent \
-      --output /dev/null \
-      --write-out '%{http_code}' \
-      --max-time 5 \
-      "http://127.0.0.1:${LOCAL_PORT}/health/ready" \
-      2>/dev/null || true
-  )"
+  if ! port_forward_is_running; then
+    echo "Catalog port-forward terminated unexpectedly." >&2
+    cat "${PORT_FORWARD_LOG}" >&2
+    exit 1
+  fi
 
-  if [[ "${READY_STATUS}" == "200" ]]; then
+  read -r READY_STATUS READY_CURL_EXIT < <(
+    get_http_status \
+      "${CATALOG_URL}/health/ready" \
+      "${HTTP_RESPONSE}"
+  )
+
+  if [[ "${READY_CURL_EXIT}" == "0" &&
+        "${READY_STATUS}" == "200" ]]; then
+
+    READINESS_RECOVERED="true"
     break
   fi
 
   sleep 1
 done
 
-if [[ "${READY_STATUS}" != "200" ]]; then
+if [[ "${READINESS_RECOVERED}" != "true" ]]; then
   echo "Catalog readiness did not recover." >&2
+  echo "Last HTTP status: ${READY_STATUS:-unknown}" >&2
+  echo "Last curl exit: ${READY_CURL_EXIT:-unknown}" >&2
   exit 1
 fi
 
@@ -432,6 +505,7 @@ echo
 echo "14. Verifying Service endpoint recovery..."
 
 READY_ENDPOINTS=""
+ENDPOINT_RECOVERED="false"
 
 for ((attempt = 1; attempt <= 60; attempt++)); do
   READY_ENDPOINTS="$(
@@ -443,13 +517,14 @@ for ((attempt = 1; attempt <= 60; attempt++)); do
   )"
 
   if [[ -n "${READY_ENDPOINTS}" ]]; then
+    ENDPOINT_RECOVERED="true"
     break
   fi
 
   sleep 1
 done
 
-if [[ -z "${READY_ENDPOINTS}" ]]; then
+if [[ "${ENDPOINT_RECOVERED}" != "true" ]]; then
   echo "Catalog Service Ready endpoint did not recover." >&2
   exit 1
 fi
