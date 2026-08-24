@@ -9,7 +9,9 @@ metadata:
     app.kubernetes.io/component: api
 
 spec:
+  {{- if not .Values.pricing.autoscaling.enabled }}
   replicas: {{ .Values.pricing.replicaCount }}
+  {{- end }}
 
   strategy:
     type: RollingUpdate
@@ -69,7 +71,7 @@ spec:
             - name: ConnectionStrings__PricingDatabase
               value: >-
                 Host={{ include "micros-02.pricingDbName" . }};
-                Port=5432;
+                Port={{ .Values.pricing.database.service.port }};
                 Database=$(PRICING_DATABASE_NAME);
                 Username=$(PRICING_DATABASE_USERNAME);
                 Password=$(PRICING_DATABASE_PASSWORD)

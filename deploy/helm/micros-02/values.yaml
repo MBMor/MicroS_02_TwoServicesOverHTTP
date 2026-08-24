@@ -85,7 +85,159 @@ pricing:
       limits:
         cpu: "1"
         memory: 1Gi
+global:
+  imagePullPolicy: IfNotPresent
 
+catalog:
+  replicaCount: 1
+
+  image:
+    repository: micros-02/catalog-service
+    tag: "1.0.0"
+
+  service:
+    port: 80
+    targetPort: 8080
+
+  config:
+    environment: Development
+    httpPorts: "8080"
+
+    pricingService:
+      timeoutSeconds: "3"
+      retryCount: "2"
+      retryDelayMilliseconds: "200"
+
+  database:
+    secretName: catalog-database-secret
+
+    image:
+      repository: postgres
+      tag: "18"
+
+    service:
+      port: 5432
+
+    persistence:
+      size: 1Gi
+
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: "1"
+        memory: 1Gi
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+pricing:
+  replicaCount: 1
+
+  image:
+    repository: micros-02/pricing-service
+    tag: "1.0.0"
+
+  service:
+    port: 80
+    targetPort: 8080
+
+  config:
+    environment: Development
+    httpPorts: "8080"
+
+  database:
+    secretName: pricing-database-secret
+
+    image:
+      repository: postgres
+      tag: "18"
+
+    service:
+      port: 5432
+
+    persistence:
+      size: 1Gi
+
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: "1"
+        memory: 1Gi
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  autoscaling:
+    enabled: false
+
+    minReplicas: 1
+    maxReplicas: 4
+
+    targetCPUUtilizationPercentage: 20
+
+    behavior:
+      scaleUp:
+        stabilizationWindowSeconds: 0
+        selectPolicy: Max
+
+        policies:
+          - type: Pods
+            value: 2
+            periodSeconds: 15
+
+          - type: Percent
+            value: 100
+            periodSeconds: 15
+
+      scaleDown:
+        stabilizationWindowSeconds: 60
+        selectPolicy: Max
+
+        policies:
+          - type: Pods
+            value: 1
+            periodSeconds: 30
+
+migrations:
+  enabled: true
+
+  image:
+    repository: micros-02/ef-migrations
+    tag: "1.0.0"
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+ingress:
+  enabled: false
+
+  className: kong
+
+  annotations:
+    konghq.com/strip-path: "false"
+
+  paths:
+    catalog: /api/v1/catalog-products
+    pricing: /api/v1/prices
   resources:
     requests:
       cpu: 100m
