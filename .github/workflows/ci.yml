@@ -95,6 +95,277 @@ jobs:
           path: TestResults/**/coverage.cobertura.xml
           if-no-files-found: warn
 
+  kubernetes-kind-smoke-test:
+    name: Kubernetes kind smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: build-and-test
+
+    env:
+      KIND_VERSION: v0.32.0
+      KIND_SHA256: 50030de23cf40a18505f20426f6a8506bedf13c6e509244bd1fa9463721b0f54
+
+      KIND_CLUSTER_NAME: micros-02-ci
+      KUBERNETES_NAMESPACE: micros-02-qa
+
+      CATALOG_IMAGE: micros-02/catalog-service:1.0.0
+      PRICING_IMAGE: micros-02/pricing-service:1.0.0
+      MIGRATIONS_IMAGE: micros-02/ef-migrations:1.0.0
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Show Docker version
+        run: docker --version
+
+      - name: Install kind
+        run: |
+          curl \
+            --fail \
+            --show-error \
+            --location \
+            --output kind \
+            "https://github.com/kubernetes-sigs/kind/releases/download/${KIND_VERSION}/kind-linux-amd64"
+
+          echo "${KIND_SHA256}  kind" | sha256sum --check -
+
+          chmod +x kind
+          sudo mv kind /usr/local/bin/kind
+
+          kind version
+
+      - name: Show kubectl version
+        run: kubectl version --client
+
+      - name: Create kind cluster
+        run: |
+          kind create cluster \
+            --name "${KIND_CLUSTER_NAME}" \
+            --wait 120s
+
+      - name: Show Kubernetes cluster
+        run: |
+          kubectl cluster-info
+          kubectl get nodes -o wide
+
+      - name: Build Catalog Service image
+        run: |
+          docker build \
+            --file src/CatalogService/CatalogService.Api/Dockerfile \
+            --tag "${CATALOG_IMAGE}" \
+            .
+
+      - name: Build Pricing Service image
+        run: |
+          docker build \
+            --file src/PricingService/PricingService.Api/Dockerfile \
+            --tag "${PRICING_IMAGE}" \
+            .
+
+      - name: Build EF migrations image
+        run: |
+          docker build \
+            --file deploy/kubernetes/migrations/Dockerfile \
+            --tag "${MIGRATIONS_IMAGE}" \
+            .
+
+      - name: Load application images into kind
+        run: |
+          kind load docker-image \
+            --name "${KIND_CLUSTER_NAME}" \
+            "${CATALOG_IMAGE}" \
+            "${PRICING_IMAGE}" \
+            "${MIGRATIONS_IMAGE}"
+
+      - name: Verify images in kind
+        run: |
+          docker exec \
+            "${KIND_CLUSTER_NAME}-control-plane" \
+            crictl images
+
+      - name: Create Kubernetes namespace
+        run: |
+          kubectl apply \
+            -f deploy/kubernetes/base/namespace.yaml
+
+      - name: Create CI database Secrets
+        run: |
+          kubectl create secret generic catalog-database-secret \
+            --namespace "${KUBERNETES_NAMESPACE}" \
+            --from-literal=postgres-database=catalog_service \
+            --from-literal=postgres-username=catalog_user \
+            --from-literal=postgres-password=catalog_ci_password
+
+          kubectl create secret generic pricing-database-secret \
+            --namespace "${KUBERNETES_NAMESPACE}" \
+            --from-literal=postgres-database=pricing_service \
+            --from-literal=postgres-username=pricing_user \
+            --from-literal=postgres-password=pricing_ci_password
+
+      - name: Deploy PostgreSQL databases
+        run: |
+          kubectl apply \
+            -f deploy/kubernetes/base/catalog-service-db/
+
+          kubectl apply \
+            -f deploy/kubernetes/base/pricing-service-db/
+
+      - name: Wait for PostgreSQL databases
+        run: |
+          kubectl wait \
+            --for=condition=Ready \
+            pod/catalog-service-db-0 \
+            --namespace "${KUBERNETES_NAMESPACE}" \
+            --timeout=180s
+
+          kubectl wait \
+            --for=condition=Ready \
+            pod/pricing-service-db-0 \
+            --namespace "${KUBERNETES_NAMESPACE}" \
+            --timeout=180s
+
+      - name: Apply application configuration and Services
+        run: |
+          kubectl apply \
+            -f deploy/kubernetes/base/catalog-service/configmap.yaml
+
+          kubectl apply \
+            -f deploy/kubernetes/base/catalog-service/service.yaml
+
+          kubectl apply \
+            -f deploy/kubernetes/base/pricing-service/configmap.yaml
+
+          kubectl apply \
+            -f deploy/kubernetes/base/pricing-service/service.yaml
+
+      - name: Run EF Core migration Jobs
+        run: |
+          kubectl apply \
+            -f deploy/kubernetes/base/migrations/pricing-migration-job.yaml
+
+          kubectl apply \
+            -f deploy/kubernetes/base/migrations/catalog-migration-job.yaml
+
+          kubectl wait \
+            --for=condition=Complete \
+            job/pricing-database-migration \
+            --namespace "${KUBERNETES_NAMESPACE}" \
+            --timeout=180s
+
+          kubectl wait \
+            --for=condition=Complete \
+            job/catalog-database-migration \
+            --namespace "${KUBERNETES_NAMESPACE}" \
+            --timeout=180s
+
+      - name: Deploy APIs
+        run: |
+          kubectl apply \
+            -f deploy/kubernetes/base/pricing-service/deployment.yaml
+
+          kubectl apply \
+            -f deploy/kubernetes/base/catalog-service/deployment.yaml
+
+      - name: Wait for API rollouts
+        run: |
+          kubectl rollout status \
+            deployment/pricing-service \
+            --namespace "${KUBERNETES_NAMESPACE}" \
+            --timeout=180s
+
+          kubectl rollout status \
+            deployment/catalog-service \
+            --namespace "${KUBERNETES_NAMESPACE}" \
+            --timeout=180s
+
+      - name: Run Kubernetes smoke test
+        env:
+          NAMESPACE: micros-02-qa
+        run: |
+          ./scripts/kubernetes/ci-kind-smoke.sh
+
+      - name: Show Kubernetes diagnostics
+        if: always()
+        run: |
+          echo "=== Nodes ==="
+          kubectl get nodes -o wide || true
+
+          echo
+          echo "=== Pods ==="
+          kubectl get pods \
+            --namespace "${KUBERNETES_NAMESPACE}" \
+            -o wide || true
+
+          echo
+          echo "=== Deployments ==="
+          kubectl get deployments \
+            --namespace "${KUBERNETES_NAMESPACE}" \
+            -o wide || true
+
+          echo
+          echo "=== StatefulSets ==="
+          kubectl get statefulsets \
+            --namespace "${KUBERNETES_NAMESPACE}" \
+            -o wide || true
+
+          echo
+          echo "=== Jobs ==="
+          kubectl get jobs \
+            --namespace "${KUBERNETES_NAMESPACE}" \
+            -o wide || true
+
+          echo
+          echo "=== Services ==="
+          kubectl get services \
+            --namespace "${KUBERNETES_NAMESPACE}" \
+            -o wide || true
+
+          echo
+          echo "=== EndpointSlices ==="
+          kubectl get endpointslices \
+            --namespace "${KUBERNETES_NAMESPACE}" \
+            -o wide || true
+
+          echo
+          echo "=== Events ==="
+          kubectl get events \
+            --namespace "${KUBERNETES_NAMESPACE}" \
+            --sort-by=.metadata.creationTimestamp || true
+
+      - name: Show failed Pod descriptions and logs
+        if: failure()
+        run: |
+          for pod in $(
+            kubectl get pods \
+              --namespace "${KUBERNETES_NAMESPACE}" \
+              -o jsonpath='{.items[*].metadata.name}' \
+              2>/dev/null
+          ); do
+            echo
+            echo "============================================================"
+            echo "Pod: ${pod}"
+            echo "============================================================"
+
+            kubectl describe pod \
+              "${pod}" \
+              --namespace "${KUBERNETES_NAMESPACE}" \
+              || true
+
+            kubectl logs \
+              "${pod}" \
+              --namespace "${KUBERNETES_NAMESPACE}" \
+              --all-containers=true \
+              --tail=500 \
+              || true
+          done
+
+      - name: Delete kind cluster
+        if: always()
+        run: |
+          kind delete cluster \
+            --name "${KIND_CLUSTER_NAME}"
+
   docker-security-scan:
     name: Docker image security scan
     runs-on: ubuntu-latest

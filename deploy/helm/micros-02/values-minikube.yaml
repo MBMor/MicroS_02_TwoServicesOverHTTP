@@ -1,0 +1,10 @@
+pricing:
+  autoscaling:
+    enabled: true
+
+ingress:
+  enabled: true
+  className: kong
+
+  annotations:
+    konghq.com/strip-path: "false"

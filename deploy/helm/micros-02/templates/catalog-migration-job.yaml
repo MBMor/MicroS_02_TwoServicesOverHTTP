@@ -1,0 +1,95 @@
+{{- if .Values.migrations.enabled }}
+apiVersion: batch/v1
+kind: Job
+
+metadata:
+  name: {{ include "micros-02.catalogMigrationName" . }}
+
+  labels:
+    {{- include "micros-02.labels" . | nindent 4 }}
+    app.kubernetes.io/name: catalog-database-migration
+    app.kubernetes.io/component: migration
+
+  annotations:
+    "helm.sh/hook": post-install,pre-upgrade
+    "helm.sh/hook-weight": "-10"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+
+spec:
+  backoffLimit: 1
+
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: catalog-database-migration
+        app.kubernetes.io/component: migration
+        app.kubernetes.io/part-of: micros-02-two-services-over-http
+        app.kubernetes.io/instance: {{ .Release.Name }}
+
+    spec:
+      restartPolicy: Never
+
+      containers:
+        - name: migration
+
+          image: "{{ .Values.migrations.image.repository }}:{{ .Values.migrations.image.tag }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+
+          args:
+            - database
+            - update
+            - --project
+            - src/CatalogService/CatalogService.Infrastructure/CatalogService.Infrastructure.csproj
+            - --startup-project
+            - src/CatalogService/CatalogService.Api/CatalogService.Api.csproj
+            - --context
+            - CatalogDbContext
+            - --configuration
+            - Release
+            - --no-build
+
+          env:
+            - name: ASPNETCORE_ENVIRONMENT
+              value: {{ .Values.catalog.config.environment | quote }}
+
+            - name: PricingService__BaseUrl
+              value: {{ printf "http://%s" (include "micros-02.pricingName" .) | quote }}
+
+            - name: PricingService__TimeoutSeconds
+              value: {{ .Values.catalog.config.pricingService.timeoutSeconds | quote }}
+
+            - name: PricingService__RetryCount
+              value: {{ .Values.catalog.config.pricingService.retryCount | quote }}
+
+            - name: PricingService__RetryDelayMilliseconds
+              value: {{ .Values.catalog.config.pricingService.retryDelayMilliseconds | quote }}
+
+            - name: CATALOG_DATABASE_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.catalog.database.secretName }}
+                  key: postgres-database
+
+            - name: CATALOG_DATABASE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.catalog.database.secretName }}
+                  key: postgres-username
+
+            - name: CATALOG_DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.catalog.database.secretName }}
+                  key: postgres-password
+
+            - name: ConnectionStrings__CatalogDatabase
+              value: >-
+                Host={{ include "micros-02.catalogDbName" . }};
+                Port={{ .Values.catalog.database.service.port }};
+                Database=$(CATALOG_DATABASE_NAME);
+                Username=$(CATALOG_DATABASE_USERNAME);
+                Password=$(CATALOG_DATABASE_PASSWORD)
+
+          resources:
+            {{- toYaml .Values.migrations.resources | nindent 12 }}
+{{- end }}

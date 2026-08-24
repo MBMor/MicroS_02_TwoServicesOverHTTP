@@ -1,0 +1,47 @@
+{{- if .Values.pricing.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+
+metadata:
+  name: {{ include "micros-02.pricingName" . }}
+
+  labels:
+    {{- include "micros-02.labels" . | nindent 4 }}
+    app.kubernetes.io/name: pricing-service
+    app.kubernetes.io/component: autoscaler
+
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "micros-02.pricingName" . }}
+
+  minReplicas: {{ .Values.pricing.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.pricing.autoscaling.maxReplicas }}
+
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.pricing.autoscaling.targetCPUUtilizationPercentage }}
+
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: {{ .Values.pricing.autoscaling.behavior.scaleUp.stabilizationWindowSeconds }}
+
+      selectPolicy: {{ .Values.pricing.autoscaling.behavior.scaleUp.selectPolicy }}
+
+      policies:
+        {{- toYaml .Values.pricing.autoscaling.behavior.scaleUp.policies | nindent 8 }}
+
+    scaleDown:
+      stabilizationWindowSeconds: {{ .Values.pricing.autoscaling.behavior.scaleDown.stabilizationWindowSeconds }}
+
+      selectPolicy: {{ .Values.pricing.autoscaling.behavior.scaleDown.selectPolicy }}
+
+      policies:
+        {{- toYaml .Values.pricing.autoscaling.behavior.scaleDown.policies | nindent 8 }}
+{{- end }}
