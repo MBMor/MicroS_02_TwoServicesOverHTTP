@@ -398,7 +398,7 @@ jobs:
 
       - name: Scan Catalog Service Docker image
         id: catalog-scan
-        uses: anchore/scan-action@v7.4.0
+        uses: anchore/scan-action@v7.4.2
         with:
           image: ${{ env.CATALOG_IMAGE }}
           fail-build: true
@@ -409,7 +409,7 @@ jobs:
 
       - name: Scan Pricing Service Docker image
         id: pricing-scan
-        uses: anchore/scan-action@v7.4.0
+        uses: anchore/scan-action@v7.4.2
         with:
           image: ${{ env.PRICING_IMAGE }}
           fail-build: true
